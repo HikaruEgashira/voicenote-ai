@@ -39,3 +39,4 @@
 
 ## Bugs
 - [x] 録音が開始されない問題を修正（prepareToRecordAsyncを追加）
+- [x] バックグラウンド録音機能の実装

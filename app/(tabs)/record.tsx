@@ -10,7 +10,8 @@ import {
   Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useAudioRecorder, RecordingPresets, AudioModule } from "expo-audio";
+import { useAudioRecorder, RecordingPresets, AudioModule, setAudioModeAsync } from "expo-audio";
+import { useKeepAwake } from "expo-keep-awake";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
 
@@ -45,9 +46,20 @@ export default function RecordScreen() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Request microphone permission
+  // Keep screen awake during recording
+  useKeepAwake();
+
+  // Request microphone permission and set audio mode for background recording
   useEffect(() => {
     (async () => {
+      // Set audio mode for background recording
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        allowsRecording: true,
+        shouldPlayInBackground: true,
+        allowsBackgroundRecording: true,
+      });
+      
       const status = await AudioModule.requestRecordingPermissionsAsync();
       setHasPermission(status.granted);
     })();

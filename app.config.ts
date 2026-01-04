@@ -34,6 +34,10 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
+    infoPlist: {
+      UIBackgroundModes: ["audio"],
+      NSMicrophoneUsageDescription: "音声録音のためにマイクへのアクセスが必要です。",
+    },
   },
   android: {
     adaptiveIcon: {
@@ -45,7 +49,12 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
-    permissions: ["POST_NOTIFICATIONS"],
+    permissions: [
+      "POST_NOTIFICATIONS",
+      "RECORD_AUDIO",
+      "FOREGROUND_SERVICE",
+      "FOREGROUND_SERVICE_MICROPHONE",
+    ],
     intentFilters: [
       {
         action: "VIEW",
@@ -71,6 +80,7 @@ const config: ExpoConfig = {
       "expo-audio",
       {
         microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",
+        enableBackgroundAudio: true,
       },
     ],
     [
