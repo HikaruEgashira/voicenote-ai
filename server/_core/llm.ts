@@ -54,6 +54,7 @@ export type ToolChoice = ToolChoicePrimitive | ToolChoiceByName | ToolChoiceExpl
 
 export type InvokeParams = {
   messages: Message[];
+  model?: string;
   tools?: Tool[];
   toolChoice?: ToolChoice;
   tool_choice?: ToolChoice;
@@ -201,15 +202,26 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
-const resolveApiUrl = () =>
-  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
+const resolveApiUrl = () => {
+  // Use Gemini API if key is available
+  if (ENV.geminiApiKey) {
+    return "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+  }
+
+  // Fallback to Forge API
+  return ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
     ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
     : "https://forge.manus.im/v1/chat/completions";
+};
 
 const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+  if (!ENV.geminiApiKey && !ENV.forgeApiKey) {
+    throw new Error("GEMINI_API_KEY or BUILT_IN_FORGE_API_KEY is not configured");
   }
+};
+
+const getApiKey = () => {
+  return ENV.geminiApiKey || ENV.forgeApiKey;
 };
 
 const normalizeResponseFormat = ({
@@ -266,8 +278,11 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     response_format,
   } = params;
 
+  // Use Gemini model if Gemini API key is set, otherwise use the specified model
+  const defaultModel = ENV.geminiApiKey ? "gemini-2.5-flash-lite" : "openai/gpt-5-mini";
+
   const payload: Record<string, unknown> = {
-    model: "gemini-2.5-flash",
+    model: params.model || defaultModel,
     messages: messages.map(normalizeMessage),
   };
 
@@ -280,10 +295,14 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.tool_choice = normalizedToolChoice;
   }
 
-  payload.max_tokens = 32768;
-  payload.thinking = {
-    budget_tokens: 128,
-  };
+  payload.max_tokens = params.maxTokens || params.max_tokens || 32768;
+
+  // Only add thinking parameter for non-Gemini APIs
+  if (!ENV.geminiApiKey) {
+    payload.thinking = {
+      budget_tokens: 128,
+    };
+  }
 
   const normalizedResponseFormat = normalizeResponseFormat({
     responseFormat,
@@ -300,7 +319,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
+      authorization: `Bearer ${getApiKey()}`,
     },
     body: JSON.stringify(payload),
   });
