@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Text,
   View,
@@ -19,12 +19,14 @@ import { useColors } from "@/hooks/use-colors";
 
 type SummaryTemplate = "general" | "meeting" | "interview" | "lecture";
 type Language = "ja" | "en" | "auto";
+type TranscriptionProvider = "elevenlabs" | "gemini";
 
 interface SettingsState {
   language: Language;
   summaryTemplate: SummaryTemplate;
   autoTranscribe: boolean;
   autoSummarize: boolean;
+  transcriptionProvider: TranscriptionProvider;
 }
 
 const LANGUAGES: { value: Language; label: string }[] = [
@@ -33,12 +35,19 @@ const LANGUAGES: { value: Language; label: string }[] = [
   { value: "en", label: "English" },
 ];
 
+const TRANSCRIPTION_PROVIDERS: { value: TranscriptionProvider; label: string; description: string }[] = [
+  { value: "gemini", label: "Gemini", description: "Googleのマルチモーダルモデル" },
+  { value: "elevenlabs", label: "ElevenLabs", description: "高精度な話者分離機能" },
+];
+
 const TEMPLATES: { value: SummaryTemplate; label: string; description: string }[] = [
   { value: "general", label: "一般", description: "汎用的な要約形式" },
   { value: "meeting", label: "会議", description: "議題・決定事項・アクションアイテム" },
   { value: "interview", label: "インタビュー", description: "主要トピック・重要発言・結論" },
   { value: "lecture", label: "講義", description: "主要概念・学習ポイント" },
 ];
+
+const SETTINGS_KEY = "app-settings";
 
 export default function SettingsScreen() {
   const colors = useColors();
@@ -49,7 +58,35 @@ export default function SettingsScreen() {
     summaryTemplate: "general",
     autoTranscribe: false,
     autoSummarize: false,
+    transcriptionProvider: "gemini",
   });
+
+  // Load settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const saved = await AsyncStorage.getItem(SETTINGS_KEY);
+        if (saved) {
+          setSettings(JSON.parse(saved));
+        }
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+      }
+    };
+    loadSettings();
+  }, []);
+
+  // Save settings whenever they change
+  useEffect(() => {
+    const saveSettings = async () => {
+      try {
+        await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      } catch (error) {
+        console.error("Failed to save settings:", error);
+      }
+    };
+    saveSettings();
+  }, [settings]);
 
   const handleLanguageChange = (language: Language) => {
     if (Platform.OS !== "web") {
@@ -63,6 +100,13 @@ export default function SettingsScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     setSettings((prev) => ({ ...prev, summaryTemplate: template }));
+  };
+
+  const handleProviderChange = (provider: TranscriptionProvider) => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setSettings((prev) => ({ ...prev, transcriptionProvider: provider }));
   };
 
   const handleToggle = (key: "autoTranscribe" | "autoSummarize") => {
@@ -164,6 +208,50 @@ export default function SettingsScreen() {
               </TouchableOpacity>
             ))}
           </View>
+        </View>
+
+        {/* Transcription Provider */}
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>文字起こしプロバイダ</Text>
+          {TRANSCRIPTION_PROVIDERS.map((provider) => (
+            <TouchableOpacity
+              key={provider.value}
+              onPress={() => handleProviderChange(provider.value)}
+              style={[
+                styles.templateItem,
+                {
+                  backgroundColor:
+                    settings.transcriptionProvider === provider.value
+                      ? colors.primary + "15"
+                      : "transparent",
+                  borderColor:
+                    settings.transcriptionProvider === provider.value ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              <View style={styles.templateContent}>
+                <Text
+                  style={[
+                    styles.templateLabel,
+                    {
+                      color:
+                        settings.transcriptionProvider === provider.value
+                          ? colors.primary
+                          : colors.foreground,
+                    },
+                  ]}
+                >
+                  {provider.label}
+                </Text>
+                <Text style={[styles.templateDescription, { color: colors.muted }]}>
+                  {provider.description}
+                </Text>
+              </View>
+              {settings.transcriptionProvider === provider.value && (
+                <IconSymbol name="checkmark" size={20} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Summary Template */}

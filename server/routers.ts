@@ -4,12 +4,13 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { invokeLLM, type Message } from "./_core/llm";
-import { 
-  transcribeAudio, 
-  transcribeAudioFromUrl, 
+import {
+  transcribeAudio,
+  transcribeAudioFromUrl,
   formatTranscriptionWithSpeakers,
-  type TranscriptionOptions 
+  type TranscriptionOptions
 } from "./elevenlabs";
+import { transcribeAudioWithGemini } from "./gemini";
 
 export const appRouter = router({
   system: systemRouter,
@@ -25,7 +26,7 @@ export const appRouter = router({
   }),
 
   ai: router({
-    // Transcription endpoint using ElevenLabs Scribe API
+    // Transcription endpoint supporting both ElevenLabs and Gemini
     transcribe: publicProcedure
       .input(z.object({
         audioUrl: z.string().optional(),
@@ -34,14 +35,42 @@ export const appRouter = router({
         languageCode: z.string().optional(),
         diarize: z.boolean().default(true),
         numSpeakers: z.number().min(1).max(32).optional(),
+        provider: z.enum(["elevenlabs", "gemini"]).default("elevenlabs"),
       }))
       .mutation(async ({ input }) => {
         console.log("[TRPC] transcribe mutation called");
+        console.log("[TRPC] provider:", input.provider);
         console.log("[TRPC] filename:", input.filename);
         console.log("[TRPC] audioBase64 length:", input.audioBase64?.length || 0);
         console.log("[TRPC] audioUrl:", input.audioUrl || "none");
 
         try {
+          // Gemini provider
+          if (input.provider === "gemini") {
+            if (!input.audioBase64) {
+              throw new Error("Gemini文字起こしにはaudioBase64が必要です");
+            }
+
+            const mimeType = input.filename.endsWith(".webm")
+              ? "audio/webm"
+              : input.filename.endsWith(".m4a")
+              ? "audio/mp4"
+              : "audio/mpeg";
+
+            const result = await transcribeAudioWithGemini(input.audioBase64, {
+              languageCode: input.languageCode,
+              mimeType,
+            });
+
+            return {
+              text: result.text,
+              rawText: result.text,
+              languageCode: result.languageCode,
+              provider: "gemini",
+            };
+          }
+
+          // ElevenLabs provider (default)
           const options: TranscriptionOptions = {
             languageCode: input.languageCode,
             diarize: input.diarize,
@@ -55,18 +84,19 @@ export const appRouter = router({
           if (input.audioBase64) {
             const audioBuffer = Buffer.from(input.audioBase64, "base64");
             result = await transcribeAudio(audioBuffer, input.filename, options);
-          } 
+          }
           // If URL is provided and it's a valid HTTPS URL, use cloud_storage_url
           else if (input.audioUrl && input.audioUrl.startsWith("https://")) {
             result = await transcribeAudioFromUrl(input.audioUrl, options);
           }
           // Local file:// URIs cannot be processed
           else if (input.audioUrl && (input.audioUrl.startsWith("file://") || !input.audioUrl.startsWith("http"))) {
-            return { 
+            return {
               text: "【ElevenLabs文字起こし】\n\nローカルファイルを文字起こしするには、音声データをBase64形式で送信してください。\n\n録音ファイル: " + (input.audioUrl?.split("/").pop() || "unknown"),
               isPlaceholder: true,
               words: [],
               languageCode: "",
+              provider: "elevenlabs",
             };
           }
           else {
@@ -74,16 +104,17 @@ export const appRouter = router({
           }
 
           // Format transcription with speaker labels if diarization was enabled
-          const formattedText = input.diarize 
+          const formattedText = input.diarize
             ? formatTranscriptionWithSpeakers(result)
             : result.text;
 
-          return { 
+          return {
             text: formattedText,
             rawText: result.text,
             words: result.words,
             languageCode: result.language_code,
             languageProbability: result.language_probability,
+            provider: "elevenlabs",
           };
         } catch (error) {
           console.error("Transcription error:", error);

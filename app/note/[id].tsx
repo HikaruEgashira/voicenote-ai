@@ -13,6 +13,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -40,9 +41,54 @@ export default function NoteDetailScreen() {
   const [currentTime, setCurrentTime] = useState(0);
   const [qaInput, setQaInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [transcriptionProvider, setTranscriptionProvider] = useState<"elevenlabs" | "gemini">("gemini");
 
   const recording = getRecording(id || "");
   const player = useAudioPlayer(recording?.audioUri || "");
+
+  // Load transcription provider from settings and handle auto-processing
+  useEffect(() => {
+    const loadProvider = async () => {
+      try {
+        const saved = await AsyncStorage.getItem("app-settings");
+        if (saved) {
+          const settings = JSON.parse(saved);
+          if (settings.transcriptionProvider) {
+            setTranscriptionProvider(settings.transcriptionProvider);
+          }
+
+          // Auto transcribe if enabled and not already transcribed
+          if (settings.autoTranscribe && recording && !recording.transcript && !isProcessing) {
+            console.log("[Auto] Starting auto-transcription");
+            handleTranscribe();
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load transcription provider:", error);
+      }
+    };
+    loadProvider();
+  }, [recording?.id]); // Re-run when recording changes
+
+  // Auto summarize when transcription completes
+  useEffect(() => {
+    const autoSummarize = async () => {
+      try {
+        const saved = await AsyncStorage.getItem("app-settings");
+        if (saved) {
+          const settings = JSON.parse(saved);
+          // Auto summarize if enabled, transcription exists, and summary doesn't exist yet
+          if (settings.autoSummarize && recording && recording.transcript && !recording.summary && !isProcessing) {
+            console.log("[Auto] Starting auto-summarization");
+            handleSummarize();
+          }
+        }
+      } catch (error) {
+        console.error("Failed to auto-summarize:", error);
+      }
+    };
+    autoSummarize();
+  }, [recording?.transcript]); // Re-run when transcript changes
 
   // Transcription mutation
   const transcribeMutation = trpc.ai.transcribe.useMutation();
@@ -187,7 +233,8 @@ export default function NoteDetailScreen() {
         audioBase64,
         filename,
         languageCode: "ja",
-        diarize: true,
+        diarize: transcriptionProvider === "elevenlabs",
+        provider: transcriptionProvider,
       });
 
       console.log("[Transcribe] Result:", result);
@@ -452,6 +499,9 @@ const handleSummarize = async () => {
                   <IconSymbol name="doc.text.fill" size={48} color={colors.muted} />
                   <Text style={[styles.emptyText, { color: colors.muted }]}>
                     文字起こしがまだありません
+                  </Text>
+                  <Text style={[styles.providerHint, { color: colors.muted }]}>
+                    プロバイダ: {transcriptionProvider === "gemini" ? "Gemini" : "ElevenLabs"}
                   </Text>
                   <TouchableOpacity
                     onPress={handleTranscribe}
@@ -842,5 +892,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
+  },
+  providerHint: {
+    fontSize: 13,
+    marginTop: 4,
   },
 });
