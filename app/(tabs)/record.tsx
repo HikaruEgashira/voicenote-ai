@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
   },
   recordingControls: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     gap: 24,
   },
   controlButton: {
