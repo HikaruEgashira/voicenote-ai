@@ -451,7 +451,7 @@ export default function SettingsScreen() {
 
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: colors.muted }]}>
-            Plaud Note Pro Alternative
+            VoiceNote
           </Text>
           <Text style={[styles.footerSubtext, { color: colors.muted }]}>
             音声録音・文字起こし・AI要約アプリ

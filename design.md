@@ -1,4 +1,4 @@
-# Plaud Note Pro Alternative - Design Document
+# VoiceNote - Design Document
 
 ## Overview
 
