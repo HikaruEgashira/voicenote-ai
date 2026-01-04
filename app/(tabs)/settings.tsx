@@ -27,6 +27,11 @@ interface SettingsState {
   autoTranscribe: boolean;
   autoSummarize: boolean;
   transcriptionProvider: TranscriptionProvider;
+  realtimeTranscription: {
+    enabled: boolean;
+    language: string;
+    enableSpeakerDiarization: boolean;
+  };
 }
 
 const LANGUAGES: { value: Language; label: string }[] = [
@@ -59,6 +64,11 @@ export default function SettingsScreen() {
     autoTranscribe: false,
     autoSummarize: false,
     transcriptionProvider: "gemini",
+    realtimeTranscription: {
+      enabled: false,
+      language: "ja",
+      enableSpeakerDiarization: true,
+    },
   });
 
   // Load settings on mount
@@ -67,7 +77,16 @@ export default function SettingsScreen() {
       try {
         const saved = await AsyncStorage.getItem(SETTINGS_KEY);
         if (saved) {
-          setSettings(JSON.parse(saved));
+          const savedSettings = JSON.parse(saved);
+          // Merge with default settings to handle missing fields
+          setSettings((prev) => ({
+            ...prev,
+            ...savedSettings,
+            realtimeTranscription: {
+              ...prev.realtimeTranscription,
+              ...(savedSettings.realtimeTranscription || {}),
+            },
+          }));
         }
       } catch (error) {
         console.error("Failed to load settings:", error);
@@ -333,6 +352,76 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Realtime Transcription */}
+        <View style={[styles.section, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+            リアルタイム文字起こし
+          </Text>
+          <View style={[styles.toggleRow, { borderBottomColor: colors.border }]}>
+            <View style={styles.toggleContent}>
+              <Text style={[styles.toggleLabel, { color: colors.foreground }]}>
+                リアルタイムモード
+              </Text>
+              <Text style={[styles.toggleDescription, { color: colors.muted }]}>
+                録音中にリアルタイムで文字起こし結果を表示（150ms遅延）
+              </Text>
+            </View>
+            <Switch
+              value={settings.realtimeTranscription.enabled}
+              onValueChange={() => {
+                if (Platform.OS !== "web") {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }
+                setSettings((prev) => ({
+                  ...prev,
+                  realtimeTranscription: {
+                    ...prev.realtimeTranscription,
+                    enabled: !prev.realtimeTranscription.enabled,
+                  },
+                }));
+              }}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+          {settings.realtimeTranscription.enabled && (
+            <>
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleContent}>
+                  <Text style={[styles.toggleLabel, { color: colors.foreground }]}>話者分離</Text>
+                  <Text style={[styles.toggleDescription, { color: colors.muted }]}>
+                    複数の話者を自動識別してラベル付け
+                  </Text>
+                </View>
+                <Switch
+                  value={settings.realtimeTranscription.enableSpeakerDiarization}
+                  onValueChange={() => {
+                    if (Platform.OS !== "web") {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                    setSettings((prev) => ({
+                      ...prev,
+                      realtimeTranscription: {
+                        ...prev.realtimeTranscription,
+                        enableSpeakerDiarization:
+                          !prev.realtimeTranscription.enableSpeakerDiarization,
+                      },
+                    }));
+                  }}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+              <View style={[styles.noteBox, { backgroundColor: colors.warning + "15" }]}>
+                <IconSymbol name="exclamationmark.triangle.fill" size={16} color={colors.warning} />
+                <Text style={[styles.noteText, { color: colors.warning }]}>
+                  リアルタイムモードはネットワーク使用量とバッテリー消費が増加します
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
+
         {/* Data Management */}
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>データ管理</Text>
@@ -362,7 +451,7 @@ export default function SettingsScreen() {
 
         <View style={styles.footer}>
           <Text style={[styles.footerText, { color: colors.muted }]}>
-            Plaud Note Pro Alternative
+            VoiceNote
           </Text>
           <Text style={[styles.footerSubtext, { color: colors.muted }]}>
             音声録音・文字起こし・AI要約アプリ
@@ -477,6 +566,19 @@ const styles = StyleSheet.create({
   dangerButtonText: {
     fontSize: 15,
     fontWeight: "500",
+  },
+  noteBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 8,
+    gap: 8,
+  },
+  noteText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
   },
   infoRow: {
     flexDirection: "row",

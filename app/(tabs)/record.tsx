@@ -8,18 +8,21 @@ import {
   Platform,
   Alert,
   Animated,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAudioRecorder, RecordingPresets, AudioModule, setAudioModeAsync } from "expo-audio";
 import { useKeepAwake } from "expo-keep-awake";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useRecordings } from "@/lib/recordings-context";
 import { useColors } from "@/hooks/use-colors";
 import { Recording, Highlight } from "@/types/recording";
+import { useRealtimeTranscription } from "@/hooks/use-realtime-transcription";
 
 const RECORDING_OPTIONS = RecordingPresets.HIGH_QUALITY;
 
@@ -33,7 +36,7 @@ function formatTime(seconds: number): string {
 export default function RecordScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { addRecording } = useRecordings();
+  const { addRecording, updateRealtimeTranscript, clearRealtimeTranscript } = useRecordings();
 
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -41,13 +44,38 @@ export default function RecordScreen() {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [notes, setNotes] = useState("");
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [realtimeEnabled, setRealtimeEnabled] = useState(false);
+  const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
 
   const audioRecorder = useAudioRecorder(RECORDING_OPTIONS);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // Realtime transcription hook
+  const {
+    state: realtimeState,
+    startSession: startRealtimeSession,
+    stopSession: stopRealtimeSession,
+  } = useRealtimeTranscription();
+
   // Keep screen awake during recording
   useKeepAwake();
+
+  // Load settings
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const saved = await AsyncStorage.getItem("app-settings");
+        if (saved) {
+          const settings = JSON.parse(saved);
+          setRealtimeEnabled(settings.realtimeTranscription?.enabled || false);
+        }
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+      }
+    };
+    loadSettings();
+  }, []);
 
   // Request microphone permission and set audio mode for background recording
   useEffect(() => {
@@ -109,6 +137,13 @@ export default function RecordScreen() {
     }
   }, [isRecording, isPaused, pulseAnim]);
 
+  // Sync realtime transcript to context
+  useEffect(() => {
+    if (currentRecordingId && realtimeState.segments.length > 0) {
+      updateRealtimeTranscript(currentRecordingId, realtimeState.segments);
+    }
+  }, [currentRecordingId, realtimeState.segments, updateRealtimeTranscript]);
+
   const handleStartRecording = useCallback(async () => {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -123,11 +158,26 @@ export default function RecordScreen() {
       setDuration(0);
       setHighlights([]);
       setNotes("");
+
+      // Create temporary recording ID for realtime transcription
+      const recordingId = Date.now().toString();
+      setCurrentRecordingId(recordingId);
+
+      // Start realtime transcription if enabled
+      if (realtimeEnabled) {
+        try {
+          await startRealtimeSession(recordingId);
+          console.log("Realtime transcription session started");
+        } catch (error) {
+          console.error("Failed to start realtime session:", error);
+          // Continue recording even if realtime fails
+        }
+      }
     } catch (error) {
       console.error("Failed to start recording:", error);
       Alert.alert("エラー", "録音を開始できませんでした");
     }
-  }, [audioRecorder]);
+  }, [audioRecorder, realtimeEnabled, startRealtimeSession]);
 
   const handlePauseResume = useCallback(async () => {
     if (Platform.OS !== "web") {
@@ -153,6 +203,16 @@ export default function RecordScreen() {
     }
 
     try {
+      // Stop realtime transcription session
+      if (realtimeEnabled && currentRecordingId) {
+        try {
+          await stopRealtimeSession();
+          console.log("Realtime transcription session stopped");
+        } catch (error) {
+          console.error("Failed to stop realtime session:", error);
+        }
+      }
+
       await audioRecorder.stop();
       setIsRecording(false);
       setIsPaused(false);
@@ -220,8 +280,9 @@ export default function RecordScreen() {
 
       // Create recording object
       const now = new Date();
+      const recordingId = currentRecordingId || Date.now().toString();
       const newRecording: Recording = {
-        id: Date.now().toString(),
+        id: recordingId,
         title: `録音 ${now.toLocaleDateString("ja-JP")} ${now.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}`,
         audioUri: finalUri,
         duration: Math.floor(duration),
@@ -241,6 +302,7 @@ export default function RecordScreen() {
       setDuration(0);
       setHighlights([]);
       setNotes("");
+      setCurrentRecordingId(null);
 
       // Navigate to note detail
       router.push(`/note/${newRecording.id}`);
@@ -248,7 +310,7 @@ export default function RecordScreen() {
       console.error("Failed to stop recording:", error);
       Alert.alert("エラー", "録音の保存に失敗しました");
     }
-  }, [audioRecorder, duration, highlights, notes, addRecording, router]);
+  }, [audioRecorder, duration, highlights, notes, addRecording, router, currentRecordingId, realtimeEnabled, stopRealtimeSession]);
 
   const handleAddHighlight = useCallback(() => {
     if (Platform.OS !== "web") {
@@ -331,6 +393,71 @@ export default function RecordScreen() {
             ))}
           </View>
         </View>
+
+        {/* Realtime Transcription */}
+        {isRecording && realtimeEnabled && (
+          <View style={[styles.realtimeSection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.realtimeHeader}>
+              <View style={styles.realtimeHeaderLeft}>
+                <IconSymbol name="text.bubble" size={16} color={colors.primary} />
+                <Text style={[styles.realtimeTitle, { color: colors.foreground }]}>
+                  リアルタイム文字起こし
+                </Text>
+              </View>
+              <View style={styles.realtimeStatus}>
+                {realtimeState.connectionStatus === "connected" && (
+                  <>
+                    <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
+                    <Text style={[styles.statusText, { color: colors.success }]}>接続中</Text>
+                  </>
+                )}
+                {realtimeState.connectionStatus === "connecting" && (
+                  <>
+                    <View style={[styles.statusDot, { backgroundColor: colors.warning }]} />
+                    <Text style={[styles.statusText, { color: colors.warning }]}>接続中...</Text>
+                  </>
+                )}
+                {realtimeState.connectionStatus === "error" && (
+                  <>
+                    <View style={[styles.statusDot, { backgroundColor: colors.error }]} />
+                    <Text style={[styles.statusText, { color: colors.error }]}>エラー</Text>
+                  </>
+                )}
+              </View>
+            </View>
+            <ScrollView
+              style={styles.realtimeContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {realtimeState.segments.length === 0 ? (
+                <Text style={[styles.realtimePlaceholder, { color: colors.muted }]}>
+                  話し始めると、ここに文字起こし結果が表示されます...
+                </Text>
+              ) : (
+                realtimeState.segments.map((segment) => (
+                  <View key={segment.id} style={styles.segmentItem}>
+                    {segment.speaker && (
+                      <Text style={[styles.speakerLabel, { color: colors.secondary }]}>
+                        [{segment.speaker}]
+                      </Text>
+                    )}
+                    <Text
+                      style={[
+                        styles.segmentText,
+                        {
+                          color: segment.isPartial ? colors.muted : colors.foreground,
+                          fontStyle: segment.isPartial ? "italic" : "normal",
+                        },
+                      ]}
+                    >
+                      {segment.text}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Highlights count */}
         {highlights.length > 0 && (
@@ -522,7 +649,7 @@ const styles = StyleSheet.create({
   },
   recordingControls: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     gap: 24,
   },
   controlButton: {
@@ -543,5 +670,62 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 14,
     marginBottom: 40,
+  },
+  realtimeSection: {
+    marginTop: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    maxHeight: 200,
+  },
+  realtimeHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  realtimeHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  realtimeTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  realtimeStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  realtimeContent: {
+    maxHeight: 140,
+  },
+  realtimePlaceholder: {
+    fontSize: 13,
+    fontStyle: "italic",
+    textAlign: "center",
+    paddingVertical: 20,
+  },
+  segmentItem: {
+    marginBottom: 8,
+  },
+  speakerLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
+  segmentText: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

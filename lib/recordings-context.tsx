@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Recording, Highlight, Transcript, Summary, QAMessage } from '@/types/recording';
+import type { TranscriptSegment as RealtimeTranscriptSegment } from '@/types/realtime-transcription';
 
 const STORAGE_KEY = 'plaud_recordings';
 
@@ -18,6 +19,8 @@ type RecordingsAction =
   | { type: 'SET_TRANSCRIPT'; payload: { recordingId: string; transcript: Transcript } }
   | { type: 'SET_SUMMARY'; payload: { recordingId: string; summary: Summary } }
   | { type: 'ADD_QA_MESSAGE'; payload: { recordingId: string; message: QAMessage } }
+  | { type: 'UPDATE_REALTIME_TRANSCRIPT'; payload: { recordingId: string; segments: RealtimeTranscriptSegment[] } }
+  | { type: 'CLEAR_REALTIME_TRANSCRIPT'; payload: string }
   | { type: 'SET_LOADING'; payload: boolean };
 
 function recordingsReducer(state: RecordingsState, action: RecordingsAction): RecordingsState {
@@ -74,6 +77,31 @@ function recordingsReducer(state: RecordingsState, action: RecordingsAction): Re
             : r
         ),
       };
+    case 'UPDATE_REALTIME_TRANSCRIPT':
+      return {
+        ...state,
+        recordings: state.recordings.map((r) =>
+          r.id === action.payload.recordingId
+            ? {
+                ...r,
+                realtimeTranscript: {
+                  segments: action.payload.segments,
+                  lastUpdated: new Date(),
+                },
+                updatedAt: new Date(),
+              }
+            : r
+        ),
+      };
+    case 'CLEAR_REALTIME_TRANSCRIPT':
+      return {
+        ...state,
+        recordings: state.recordings.map((r) =>
+          r.id === action.payload
+            ? { ...r, realtimeTranscript: undefined, updatedAt: new Date() }
+            : r
+        ),
+      };
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
     default:
@@ -90,6 +118,8 @@ interface RecordingsContextValue {
   setTranscript: (recordingId: string, transcript: Transcript) => Promise<void>;
   setSummary: (recordingId: string, summary: Summary) => Promise<void>;
   addQAMessage: (recordingId: string, message: QAMessage) => Promise<void>;
+  updateRealtimeTranscript: (recordingId: string, segments: RealtimeTranscriptSegment[]) => void;
+  clearRealtimeTranscript: (recordingId: string) => void;
   getRecording: (id: string) => Recording | undefined;
 }
 
@@ -182,6 +212,14 @@ export function RecordingsProvider({ children }: { children: React.ReactNode }) 
     dispatch({ type: 'ADD_QA_MESSAGE', payload: { recordingId, message } });
   }, []);
 
+  const updateRealtimeTranscript = useCallback((recordingId: string, segments: RealtimeTranscriptSegment[]) => {
+    dispatch({ type: 'UPDATE_REALTIME_TRANSCRIPT', payload: { recordingId, segments } });
+  }, []);
+
+  const clearRealtimeTranscript = useCallback((recordingId: string) => {
+    dispatch({ type: 'CLEAR_REALTIME_TRANSCRIPT', payload: recordingId });
+  }, []);
+
   const getRecording = useCallback(
     (id: string) => state.recordings.find((r) => r.id === id),
     [state.recordings]
@@ -198,6 +236,8 @@ export function RecordingsProvider({ children }: { children: React.ReactNode }) 
         setTranscript,
         setSummary,
         addQAMessage,
+        updateRealtimeTranscript,
+        clearRealtimeTranscript,
         getRecording,
       }}
     >

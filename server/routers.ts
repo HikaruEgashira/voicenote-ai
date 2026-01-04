@@ -11,6 +11,7 @@ import {
   type TranscriptionOptions
 } from "./elevenlabs";
 import { transcribeAudioWithGemini } from "./gemini";
+import { generateRealtimeToken } from "./elevenlabs-realtime";
 
 export const appRouter = router({
   system: systemRouter,
@@ -264,6 +265,20 @@ ${input.transcriptText}`,
         } catch (error) {
           console.error("Q&A error:", error);
           throw new Error("質問への回答に失敗しました");
+        }
+      }),
+
+    // Generate realtime transcription token
+    generateRealtimeToken: publicProcedure
+      .mutation(async () => {
+        try {
+          console.log("[TRPC] Generating realtime token");
+          const token = await generateRealtimeToken();
+          return { token };
+        } catch (error) {
+          console.error("[TRPC] Failed to generate realtime token:", error);
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          throw new Error(`トークンの生成に失敗しました: ${errorMessage}`);
         }
       }),
   }),

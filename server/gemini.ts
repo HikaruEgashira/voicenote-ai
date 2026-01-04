@@ -88,5 +88,3 @@ export async function transcribeAudioWithGemini(
     languageCode: options.languageCode || "auto",
   };
 }
-
-export type { GeminiTranscriptionOptions, GeminiTranscriptionResponse };

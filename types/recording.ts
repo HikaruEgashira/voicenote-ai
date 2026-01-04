@@ -1,3 +1,5 @@
+import type { TranscriptSegment as RealtimeTranscriptSegment } from "./realtime-transcription";
+
 export interface Highlight {
   id: string;
   timestamp: number;
@@ -52,6 +54,11 @@ export interface Recording {
   summary?: Summary;
   qaHistory: QAMessage[];
   status: 'recording' | 'saved' | 'transcribing' | 'transcribed' | 'summarizing' | 'summarized';
+  /** リアルタイム文字起こし（録音中の一時データ） */
+  realtimeTranscript?: {
+    segments: RealtimeTranscriptSegment[];
+    lastUpdated: Date;
+  };
 }
 
 export type RecordingStatus = Recording['status'];

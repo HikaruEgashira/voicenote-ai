@@ -24,6 +24,7 @@
     "@react-navigation/bottom-tabs": "^7.8.12",
     "@react-navigation/elements": "^2.9.2",
     "@react-navigation/native": "^7.1.25",
+    "@siteed/expo-audio-studio": "^2.18.1",
     "@tanstack/react-query": "^5.90.12",
     "@trpc/client": "11.7.2",
     "@trpc/react-query": "11.7.2",
@@ -67,6 +68,7 @@
     "react-native-worklets": "0.5.1",
     "superjson": "^1.13.3",
     "tailwind-merge": "^2.6.0",
+    "ws": "^8.18.3",
     "zod": "^4.2.1"
   },
   "devDependencies": {
@@ -76,6 +78,7 @@
     "@types/node": "^22.19.3",
     "@types/qrcode": "^1.5.6",
     "@types/react": "~19.1.17",
+    "@types/ws": "^8.18.1",
     "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
     "drizzle-kit": "^0.31.8",
