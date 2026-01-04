@@ -4,6 +4,12 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { invokeLLM, type Message } from "./_core/llm";
+import { 
+  transcribeAudio, 
+  transcribeAudioFromUrl, 
+  formatTranscriptionWithSpeakers,
+  type TranscriptionOptions 
+} from "./elevenlabs";
 
 export const appRouter = router({
   system: systemRouter,
@@ -19,62 +25,65 @@ export const appRouter = router({
   }),
 
   ai: router({
-    // Transcription endpoint - returns placeholder since local audio files cannot be sent to LLM
-    // Real transcription would require uploading the audio file to a public URL first
+    // Transcription endpoint using ElevenLabs Scribe API
     transcribe: publicProcedure
       .input(z.object({
-        audioUrl: z.string(),
+        audioUrl: z.string().optional(),
+        audioBase64: z.string().optional(),
+        filename: z.string().default("recording.m4a"),
+        languageCode: z.string().optional(),
+        diarize: z.boolean().default(true),
+        numSpeakers: z.number().min(1).max(32).optional(),
       }))
       .mutation(async ({ input }) => {
         try {
-          // Local file:// URIs cannot be accessed by the LLM API
-          // For now, return a message explaining this limitation
-          // In production, you would:
-          // 1. Upload the audio file to cloud storage (S3, etc.)
-          // 2. Get a public URL
-          // 3. Send that URL to the LLM
-          
-          if (input.audioUrl.startsWith("file://") || !input.audioUrl.startsWith("http")) {
-            // Return a placeholder message for local files
+          const options: TranscriptionOptions = {
+            languageCode: input.languageCode,
+            diarize: input.diarize,
+            numSpeakers: input.numSpeakers,
+            tagAudioEvents: true,
+          };
+
+          let result;
+
+          // If base64 audio is provided, use it directly
+          if (input.audioBase64) {
+            const audioBuffer = Buffer.from(input.audioBase64, "base64");
+            result = await transcribeAudio(audioBuffer, input.filename, options);
+          } 
+          // If URL is provided and it's a valid HTTPS URL, use cloud_storage_url
+          else if (input.audioUrl && input.audioUrl.startsWith("https://")) {
+            result = await transcribeAudioFromUrl(input.audioUrl, options);
+          }
+          // Local file:// URIs cannot be processed
+          else if (input.audioUrl && (input.audioUrl.startsWith("file://") || !input.audioUrl.startsWith("http"))) {
             return { 
-              text: "【文字起こし機能】\n\nこの機能はローカルファイルでは利用できません。\n\n実際の文字起こしを行うには、音声ファイルをクラウドストレージにアップロードし、そのURLをAIに送信する必要があります。\n\n録音ファイル: " + input.audioUrl.split("/").pop(),
+              text: "【ElevenLabs文字起こし】\n\nローカルファイルを文字起こしするには、音声データをBase64形式で送信してください。\n\n録音ファイル: " + (input.audioUrl?.split("/").pop() || "unknown"),
               isPlaceholder: true,
+              words: [],
+              languageCode: "",
             };
           }
+          else {
+            throw new Error("audioBase64 または有効なHTTPS URLが必要です");
+          }
 
-          const result = await invokeLLM({
-            messages: [
-              {
-                role: "system",
-                content: "あなたは音声文字起こしの専門家です。提供された音声を正確に文字起こししてください。話者が複数いる場合は、話者を区別してください。",
-              },
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "file_url",
-                    file_url: {
-                      url: input.audioUrl,
-                      mime_type: "audio/mpeg",
-                    },
-                  },
-                  {
-                    type: "text",
-                    text: "この音声を文字起こししてください。",
-                  },
-                ],
-              },
-            ],
-            maxTokens: 4000,
-          });
+          // Format transcription with speaker labels if diarization was enabled
+          const formattedText = input.diarize 
+            ? formatTranscriptionWithSpeakers(result)
+            : result.text;
 
-          const content = result.choices[0]?.message?.content;
-          const text = typeof content === "string" ? content : "";
-
-          return { text };
+          return { 
+            text: formattedText,
+            rawText: result.text,
+            words: result.words,
+            languageCode: result.language_code,
+            languageProbability: result.language_probability,
+          };
         } catch (error) {
           console.error("Transcription error:", error);
-          throw new Error("文字起こしに失敗しました");
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          throw new Error(`文字起こしに失敗しました: ${errorMessage}`);
         }
       }),
 

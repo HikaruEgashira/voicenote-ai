@@ -97,14 +97,37 @@ export default function NoteDetailScreen() {
     updateRecording(recording.id, { status: "transcribing" });
 
     try {
+      // Read audio file and convert to base64
+      let audioBase64: string | undefined;
+      let filename = "recording.m4a";
+      
+      if (recording.audioUri) {
+        // Import FileSystem dynamically to avoid issues on web
+        const FileSystem = await import("expo-file-system/legacy");
+        
+        if (recording.audioUri.startsWith("file://") || !recording.audioUri.startsWith("http")) {
+          // Read local file as base64
+          const base64Data = await FileSystem.readAsStringAsync(recording.audioUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          audioBase64 = base64Data;
+          filename = recording.audioUri.split("/").pop() || "recording.m4a";
+        }
+      }
+
       const result = await transcribeMutation.mutateAsync({
         audioUrl: recording.audioUri,
+        audioBase64,
+        filename,
+        languageCode: "ja",
+        diarize: true,
       });
+      
       if (result.text) {
         setTranscript(recording.id, {
           text: result.text,
           segments: [],
-          language: "ja",
+          language: result.languageCode || "ja",
           processedAt: new Date(),
         });
       }

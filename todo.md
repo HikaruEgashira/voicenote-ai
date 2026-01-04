@@ -41,3 +41,8 @@
 - [x] 録音が開始されない問題を修正（prepareToRecordAsyncを追加）
 - [x] バックグラウンド録音機能の実装
 - [x] 文字起こしのTRPCClientErrorを修正（ローカルファイルの制限を説明するメッセージを返すように変更）
+
+## ElevenLabs Integration
+- [x] ElevenLabs APIとOAuthの調査（API Key認証を使用）
+- [x] ElevenLabs OAuth認証の実装（API Key認証を使用）
+- [x] ElevenLabs音声処理APIの統合（文字起こし）
