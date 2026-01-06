@@ -19,7 +19,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useRecordings } from "@/lib/recordings-context";
 import { useColors } from "@/hooks/use-colors";
-import { Recording, QAMessage } from "@/types/recording";
+import { QAMessage } from "@/types/recording";
 import { trpc } from "@/lib/trpc";
 
 type TabType = "audio" | "transcript" | "summary" | "qa";
@@ -68,7 +68,8 @@ export default function NoteDetailScreen() {
       }
     };
     loadProvider();
-  }, [recording?.id]); // Re-run when recording changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recording?.id]); // Re-run only when recording ID changes to avoid infinite loops
 
   // Auto summarize when transcription completes
   useEffect(() => {
@@ -88,7 +89,8 @@ export default function NoteDetailScreen() {
       }
     };
     autoSummarize();
-  }, [recording?.transcript]); // Re-run when transcript changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recording?.transcript]); // Re-run only when transcript changes to avoid infinite loops
 
   // Transcription mutation
   const transcribeMutation = trpc.ai.transcribe.useMutation();

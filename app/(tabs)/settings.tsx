@@ -148,7 +148,7 @@ export default function SettingsScreen() {
             try {
               await AsyncStorage.clear();
               Alert.alert("完了", "すべてのデータが削除されました。アプリを再起動してください。");
-            } catch (error) {
+            } catch {
               Alert.alert("エラー", "データの削除に失敗しました");
             }
           },
