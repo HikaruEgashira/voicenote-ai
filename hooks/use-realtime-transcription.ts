@@ -5,7 +5,7 @@
  * 録音中にリアルタイムで文字起こし結果を取得します。
  */
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { Alert, Platform } from "react-native";
 import { trpc } from "@/lib/trpc";
 import { RealtimeTranscriptionClient } from "@/lib/realtime-transcription";
@@ -484,21 +484,60 @@ export function useRealtimeTranscription() {
   }, []);
 
   /**
+   * 表示用にセグメントを結合（同じ話者の連続セグメントは空白で結合）
+   * useMemoでキャッシュし、state.segmentsが変わった時のみ再計算
+   */
+  const mergedSegments = useMemo((): TranscriptSegment[] => {
+    const merged: TranscriptSegment[] = [];
+
+    for (const segment of state.segments) {
+      const last = merged[merged.length - 1];
+
+      // 同じ話者（または両方話者なし）かつ両方committedの場合は結合
+      if (
+        last &&
+        !last.isPartial &&
+        !segment.isPartial &&
+        last.speaker === segment.speaker
+      ) {
+        merged[merged.length - 1] = {
+          ...last,
+          text: `${last.text} ${segment.text}`,
+          timestamp: segment.timestamp,
+        };
+      } else {
+        merged.push({ ...segment });
+      }
+    }
+
+    return merged;
+  }, [state.segments]);
+
+  /**
+   * getMergedSegments - 後方互換性のためのラッパー（非推奨）
+   * 新しいコードではmergedSegmentsを直接使用してください
+   */
+  const getMergedSegments = useCallback((): TranscriptSegment[] => {
+    return mergedSegments;
+  }, [mergedSegments]);
+
+  /**
    * セグメントを統合して最終的な文字起こしテキストを生成
    *
    * @returns 統合されたテキスト
    */
   const consolidateSegments = useCallback((): string => {
-    return state.segments
-      .filter((s) => !s.isPartial) // committedセグメントのみ
+    const merged = getMergedSegments();
+    return merged
+      .filter((s) => !s.isPartial)
       .map((s) => {
         if (s.speaker) {
           return `[${s.speaker}]: ${s.text}`;
         }
         return s.text;
       })
-      .join("\n\n");
-  }, [state.segments]);
+      .join("\n");
+  }, [getMergedSegments]);
 
   return {
     state,
@@ -506,5 +545,7 @@ export function useRealtimeTranscription() {
     stopSession,
     sendAudioChunk,
     consolidateSegments,
+    getMergedSegments,
+    mergedSegments,
   };
 }
