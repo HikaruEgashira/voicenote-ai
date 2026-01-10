@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from "react";
+import React, { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
   Text,
   View,
@@ -209,14 +209,23 @@ export default function HomeScreen() {
   const colors = useColors();
   const { state, deleteRecording } = useRecordings();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "transcribed" | "summarized">("all");
+
+  // 検索クエリのデバウンス処理（300ms）
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const filteredRecordings = useMemo(() => {
     let result = state.recordings;
 
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    // Apply search filter with debounced query
+    if (debouncedSearchQuery.trim()) {
+      const query = debouncedSearchQuery.toLowerCase();
       result = result.filter(
         (r) =>
           r.title.toLowerCase().includes(query) ||
@@ -233,15 +242,16 @@ export default function HomeScreen() {
     }
 
     return result;
-  }, [state.recordings, searchQuery, filter]);
+  }, [state.recordings, debouncedSearchQuery, filter]);
 
-  const handleRecordingPress = (recording: Recording) => {
-    router.push(`/note/${recording.id}`);
-  };
+  // コールバックをメモ化してRecordingCardの再レンダリングを防止
+  const handleRecordingPress = useCallback((id: string) => {
+    router.push(`/note/${id}`);
+  }, [router]);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     await deleteRecording(id);
-  };
+  }, [deleteRecording]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -312,13 +322,23 @@ export default function HomeScreen() {
         renderItem={({ item }) => (
           <RecordingCard
             recording={item}
-            onPress={() => handleRecordingPress(item)}
+            onPress={() => handleRecordingPress(item.id)}
             onDelete={() => handleDelete(item.id)}
           />
         )}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
+        // パフォーマンス最適化: 大量データ対応
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={true}
+        getItemLayout={(data, index) => ({
+          length: 120, // 推定カード高さ
+          offset: 120 * index,
+          index,
+        })}
       />
     </ScreenContainer>
   );

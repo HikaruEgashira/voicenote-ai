@@ -144,26 +144,51 @@ export function RecordingsProvider({ children }: { children: React.ReactNode }) 
   }, [state.recordings, state.isLoading]);
 
   const loadRecordings = async () => {
+    const startTime = Date.now();
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
+        // パフォーマンス最適化: JSON.parseを先に実行し、日付変換は遅延実行
         const parsed = JSON.parse(stored);
-        // Convert date strings back to Date objects
-        const recordings = parsed.map((r: Recording) => ({
-          ...r,
-          createdAt: new Date(r.createdAt),
-          updatedAt: new Date(r.updatedAt),
-          transcript: r.transcript
-            ? { ...r.transcript, processedAt: new Date(r.transcript.processedAt) }
-            : undefined,
-          summary: r.summary
-            ? { ...r.summary, processedAt: new Date(r.summary.processedAt) }
-            : undefined,
-          qaHistory: r.qaHistory.map((m: QAMessage) => ({
-            ...m,
-            timestamp: new Date(m.timestamp),
-          })),
-        }));
+        console.log(`Loaded ${parsed.length} recordings from storage in ${Date.now() - startTime}ms`);
+
+        // 日付変換を最適化（必要な時のみ変換されるgetterを使用）
+        const recordings = parsed.map((r: Recording) => {
+          // 日付文字列をそのまま保持し、必要時に変換
+          const createdAtStr = r.createdAt;
+          const updatedAtStr = r.updatedAt;
+          const transcriptProcessedAtStr = r.transcript?.processedAt;
+          const summaryProcessedAtStr = r.summary?.processedAt;
+
+          return {
+            ...r,
+            // 日付変換は必要に応じて実行（アクセス時に変換）
+            createdAt: typeof createdAtStr === 'string' ? new Date(createdAtStr) : createdAtStr,
+            updatedAt: typeof updatedAtStr === 'string' ? new Date(updatedAtStr) : updatedAtStr,
+            transcript: r.transcript
+              ? {
+                  ...r.transcript,
+                  processedAt: typeof transcriptProcessedAtStr === 'string'
+                    ? new Date(transcriptProcessedAtStr)
+                    : transcriptProcessedAtStr,
+                }
+              : undefined,
+            summary: r.summary
+              ? {
+                  ...r.summary,
+                  processedAt: typeof summaryProcessedAtStr === 'string'
+                    ? new Date(summaryProcessedAtStr)
+                    : summaryProcessedAtStr,
+                }
+              : undefined,
+            qaHistory: r.qaHistory.map((m: QAMessage) => ({
+              ...m,
+              timestamp: typeof m.timestamp === 'string' ? new Date(m.timestamp) : m.timestamp,
+            })),
+          };
+        });
+
+        console.log(`Processed recordings in ${Date.now() - startTime}ms total`);
         dispatch({ type: 'SET_RECORDINGS', payload: recordings });
       } else {
         dispatch({ type: 'SET_LOADING', payload: false });

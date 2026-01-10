@@ -130,14 +130,28 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
     };
   }, [isRecording, isPaused]);
 
-  // Update metering history
+  // Update metering history with memory limit
+  // 長時間録音でもメモリ使用量を制限（最大10分 = 6000サンプル @ 100ms）
+  const MAX_FULL_HISTORY_SIZE = 6000;
+
   useEffect(() => {
     if (isRecording && !isPaused) {
       setMeteringHistory((prev) => {
         const newHistory = [...prev, metering];
         return newHistory.slice(-50);
       });
-      setFullMeteringHistory((prev) => [...prev, metering]);
+      setFullMeteringHistory((prev) => {
+        // メモリ制限: 最大サイズを超えたら間引き（ダウンサンプリング）
+        if (prev.length >= MAX_FULL_HISTORY_SIZE) {
+          // 2サンプルを1サンプルに圧縮して半分にする
+          const downsampled = [];
+          for (let i = 0; i < prev.length - 1; i += 2) {
+            downsampled.push((prev[i] + prev[i + 1]) / 2);
+          }
+          return [...downsampled, metering];
+        }
+        return [...prev, metering];
+      });
     }
   }, [isRecording, isPaused, metering]);
 
