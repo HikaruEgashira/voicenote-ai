@@ -51,48 +51,6 @@ export async function setSessionToken(token: string): Promise<void> {
   }
 }
 
-export async function removeSessionToken(): Promise<void> {
-  try {
-    // Web platform uses cookie-based auth, logout is handled by server clearing cookie
-    if (Platform.OS === "web") {
-      console.log("[Auth] Web platform uses cookie-based auth, skipping token removal");
-      return;
-    }
-
-    // Use SecureStore for native
-    console.log("[Auth] Removing session token...");
-    await SecureStore.deleteItemAsync(SESSION_TOKEN_KEY);
-    console.log("[Auth] Session token removed from SecureStore successfully");
-  } catch (error) {
-    console.error("[Auth] Failed to remove session token:", error);
-  }
-}
-
-export async function getUserInfo(): Promise<User | null> {
-  try {
-    console.log("[Auth] Getting user info...");
-
-    let info: string | null = null;
-    if (Platform.OS === "web") {
-      // Use localStorage for web
-      info = window.localStorage.getItem(USER_INFO_KEY);
-    } else {
-      // Use SecureStore for native
-      info = await SecureStore.getItemAsync(USER_INFO_KEY);
-    }
-
-    if (!info) {
-      console.log("[Auth] No user info found");
-      return null;
-    }
-    const user = JSON.parse(info);
-    console.log("[Auth] User info retrieved:", user);
-    return user;
-  } catch (error) {
-    console.error("[Auth] Failed to get user info:", error);
-    return null;
-  }
-}
 
 export async function setUserInfo(user: User): Promise<void> {
   try {
@@ -113,17 +71,3 @@ export async function setUserInfo(user: User): Promise<void> {
   }
 }
 
-export async function clearUserInfo(): Promise<void> {
-  try {
-    if (Platform.OS === "web") {
-      // Use localStorage for web
-      window.localStorage.removeItem(USER_INFO_KEY);
-      return;
-    }
-
-    // Use SecureStore for native
-    await SecureStore.deleteItemAsync(USER_INFO_KEY);
-  } catch (error) {
-    console.error("[Auth] Failed to clear user info:", error);
-  }
-}

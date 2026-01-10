@@ -1,13 +1,13 @@
 import { ENV } from "./env";
 
-export type Role = "system" | "user" | "assistant" | "tool" | "function";
+type Role = "system" | "user" | "assistant" | "tool" | "function";
 
-export type TextContent = {
+type TextContent = {
   type: "text";
   text: string;
 };
 
-export type ImageContent = {
+type ImageContent = {
   type: "image_url";
   image_url: {
     url: string;
@@ -15,7 +15,7 @@ export type ImageContent = {
   };
 };
 
-export type FileContent = {
+type FileContent = {
   type: "file_url";
   file_url: {
     url: string;
@@ -23,7 +23,7 @@ export type FileContent = {
   };
 };
 
-export type MessageContent = string | TextContent | ImageContent | FileContent;
+type MessageContent = string | TextContent | ImageContent | FileContent;
 
 export type Message = {
   role: Role;
@@ -32,7 +32,7 @@ export type Message = {
   tool_call_id?: string;
 };
 
-export type Tool = {
+type Tool = {
   type: "function";
   function: {
     name: string;
@@ -41,16 +41,16 @@ export type Tool = {
   };
 };
 
-export type ToolChoicePrimitive = "none" | "auto" | "required";
-export type ToolChoiceByName = { name: string };
-export type ToolChoiceExplicit = {
+type ToolChoicePrimitive = "none" | "auto" | "required";
+type ToolChoiceByName = { name: string };
+type ToolChoiceExplicit = {
   type: "function";
   function: {
     name: string;
   };
 };
 
-export type ToolChoice = ToolChoicePrimitive | ToolChoiceByName | ToolChoiceExplicit;
+type ToolChoice = ToolChoicePrimitive | ToolChoiceByName | ToolChoiceExplicit;
 
 export type InvokeParams = {
   messages: Message[];
@@ -66,7 +66,7 @@ export type InvokeParams = {
   response_format?: ResponseFormat;
 };
 
-export type ToolCall = {
+type ToolCall = {
   id: string;
   type: "function";
   function: {
@@ -95,15 +95,15 @@ export type InvokeResult = {
   };
 };
 
-export type JsonSchema = {
+type JsonSchema = {
   name: string;
   schema: Record<string, unknown>;
   strict?: boolean;
 };
 
-export type OutputSchema = JsonSchema;
+type OutputSchema = JsonSchema;
 
-export type ResponseFormat =
+type ResponseFormat =
   | { type: "text" }
   | { type: "json_object" }
   | { type: "json_schema"; json_schema: JsonSchema };

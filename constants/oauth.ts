@@ -1,20 +1,6 @@
 import * as ReactNative from "react-native";
 
-const env = {
-  portal: process.env.EXPO_PUBLIC_OAUTH_PORTAL_URL ?? "",
-  server: process.env.EXPO_PUBLIC_OAUTH_SERVER_URL ?? "",
-  appId: process.env.EXPO_PUBLIC_APP_ID ?? "",
-  ownerId: process.env.EXPO_PUBLIC_OWNER_OPEN_ID ?? "",
-  ownerName: process.env.EXPO_PUBLIC_OWNER_NAME ?? "",
-  apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "",
-};
-
-export const OAUTH_PORTAL_URL = env.portal;
-export const OAUTH_SERVER_URL = env.server;
-export const APP_ID = env.appId;
-export const OWNER_OPEN_ID = env.ownerId;
-export const OWNER_NAME = env.ownerName;
-export const API_BASE_URL = env.apiBaseUrl;
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
 
 /**
  * Get the API base URL, deriving from current hostname if not set.

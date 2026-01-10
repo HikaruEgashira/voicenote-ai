@@ -205,4 +205,4 @@ export function formatTranscriptionWithSpeakers(response: TranscriptionResponse)
     .join("\n\n");
 }
 
-export type { TranscriptionResponse, TranscriptionWord, TranscriptionOptions };
+export type { TranscriptionOptions };

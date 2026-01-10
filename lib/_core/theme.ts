@@ -4,7 +4,7 @@ import themeConfig from "@/theme.config";
 
 export type ColorScheme = "light" | "dark";
 
-export const ThemeColors = themeConfig.themeColors;
+const ThemeColors = themeConfig.themeColors;
 
 type ThemeColorTokens = typeof ThemeColors;
 type ThemeColorName = keyof ThemeColorTokens;
@@ -59,7 +59,7 @@ export const Colors = {
 
 export type ThemeColorPalette = (typeof Colors)[ColorScheme];
 
-export const Fonts = Platform.select({
+const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: "system-ui",

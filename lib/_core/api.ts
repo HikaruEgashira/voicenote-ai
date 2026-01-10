@@ -7,7 +7,7 @@ type ApiResponse<T> = {
   error?: string;
 };
 
-export async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...((options.headers as Record<string, string>) || {}),
@@ -114,30 +114,5 @@ export async function exchangeOAuthCode(
     sessionToken,
     user: result.user,
   };
-}
-
-// Logout
-export async function logout(): Promise<void> {
-  await apiCall<void>("/api/auth/logout", {
-    method: "POST",
-  });
-}
-
-// Get current authenticated user (web uses cookie-based auth)
-export async function getMe(): Promise<{
-  id: number;
-  openId: string;
-  name: string | null;
-  email: string | null;
-  loginMethod: string | null;
-  lastSignedIn: string;
-} | null> {
-  try {
-    const result = await apiCall<{ user: any }>("/api/auth/me");
-    return result.user || null;
-  } catch (error) {
-    console.error("[API] getMe failed:", error);
-    return null;
-  }
 }
 
