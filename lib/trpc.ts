@@ -2,8 +2,15 @@ import { createTRPCReact } from "@trpc/react-query";
 import { httpBatchLink } from "@trpc/client";
 import superjson from "superjson";
 import type { AppRouter } from "@/server/routers";
-import { getApiBaseUrl } from "@/constants/oauth";
-import * as Auth from "@/lib/_core/auth";
+import { isSecurityError, getSecurityErrorMessage } from "@/shared/security-errors";
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+
+let globalSecurityErrorHandler: ((message: string, status: number) => void) | null = null;
+
+export function setSecurityErrorHandler(handler: typeof globalSecurityErrorHandler) {
+  globalSecurityErrorHandler = handler;
+}
 
 /**
  * tRPC React client for type-safe API calls.
@@ -22,19 +29,15 @@ export function createTRPCClient() {
   return trpc.createClient({
     links: [
       httpBatchLink({
-        url: `${getApiBaseUrl()}/api/trpc`,
+        url: `${API_BASE_URL}/api/trpc`,
         // tRPC v11: transformer MUST be inside httpBatchLink, not at root
         transformer: superjson,
-        async headers() {
-          const token = await Auth.getSessionToken();
-          return token ? { Authorization: `Bearer ${token}` } : {};
-        },
-        // Custom fetch to include credentials for cookie-based auth
-        fetch(url, options) {
-          return fetch(url, {
-            ...options,
-            credentials: "include",
-          });
+        async fetch(url, options) {
+          const response = await fetch(url, options);
+          if (isSecurityError(response.status) && globalSecurityErrorHandler) {
+            globalSecurityErrorHandler(getSecurityErrorMessage(response.status), response.status);
+          }
+          return response;
         },
       }),
     ],
