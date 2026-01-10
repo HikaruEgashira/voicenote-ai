@@ -78,3 +78,28 @@ Explore Agentが効率的にファイルを特定できるよう：
 - セッションあたりの平均トークン消費
 - Read呼び出し回数/探索タスク
 - cache_read_input_tokens / cache_creation_input_tokens比率
+
+## Baseline Measurement (2026-01-10)
+
+**分析対象**: ~/.claude/debug/ (3,675ファイル, 102MB)
+
+**サブエージェントログ分析**:
+| ファイルサイズ | 数 | 備考 |
+|-------------|---|------|
+| >500KB | 2 | 長時間探索タスク |
+| 100-500KB | 多数 | 一般的な探索 |
+| <10KB | 多数 | シングルターンセッション |
+
+**トークン消費サンプル（38ターンセッション）**:
+- input_tokens合計: 6,603
+- output_tokens合計: 965
+- cache_creation: 120,284
+- cache_read: 614,693
+- キャッシュ効率: 83.6%
+
+**deslop適用度**: 現コードベースはクリーンでslop率は低い
+
+## Implementation Log
+
+- 2026-01-10: ADR作成、~/.claude/contexts/にllm.md, web.mdを分離
+- CLAUDE.md縮小: 27行 → 11行（約60%削減）
