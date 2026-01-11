@@ -85,7 +85,7 @@ resource "aws_lambda_function" "api" {
   package_type  = "Image"
   image_uri     = "${aws_ecr_repository.api.repository_url}:latest"
   timeout       = 30
-  memory_size   = 512
+  memory_size   = 1024
 
   environment {
     variables = {

@@ -16,9 +16,9 @@ echo "=== Building and deploying ${FUNCTION_NAME} ==="
 echo "Logging into ECR..."
 aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
 
-# Build Docker image
+# Build Docker image from project root
 echo "Building Docker image..."
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 docker build --platform linux/amd64 -t ${FUNCTION_NAME} --load .
 
 # Tag and push

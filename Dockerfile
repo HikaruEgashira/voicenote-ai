@@ -17,13 +17,13 @@ COPY tsconfig.json ./
 # Install dev dependencies for build
 RUN pnpm install --frozen-lockfile
 
-# Build main application
+# Build main application (CommonJS for Lambda compatibility)
 RUN npx esbuild apps/server/_core/index.ts \
     --platform=node \
     --packages=external \
     --bundle \
-    --format=esm \
-    --outdir=dist
+    --format=cjs \
+    --outfile=dist/index.js
 
-# Set the handler
-CMD ["dist/index.js"]
+# Set the handler - Lambda expects handler function name
+CMD ["dist/index.handler"]
