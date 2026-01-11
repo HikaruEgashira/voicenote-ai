@@ -8,10 +8,10 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "pleno-transcribe-api-terraform-state"
+    bucket         = "pleno-audit-api-terraform-state"
     key            = "prod/terraform.tfstate"
     region         = "ap-northeast-1"
-    dynamodb_table = "pleno-transcribe-api-terraform-lock"
+    dynamodb_table = "pleno-audit-api-terraform-lock"
     encrypt        = true
   }
 }
@@ -25,7 +25,7 @@ variable "aws_region" {
 }
 
 variable "project_name" {
-  default = "pleno-transcribe-api"
+  default = "pleno-audit-api"
 }
 
 variable "environment" {

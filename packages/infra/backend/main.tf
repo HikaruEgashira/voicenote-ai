@@ -13,7 +13,7 @@ provider "aws" {
 }
 
 variable "project_name" {
-  default = "pleno-transcribe-api"
+  default = "pleno-audit-api"
 }
 
 locals {
