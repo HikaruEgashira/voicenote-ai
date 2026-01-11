@@ -6,6 +6,6 @@
 
 Android APKをダウンロード:
 
-![QR Code](https://github.com/HikaruEgashira/pleno-transcribe/releases/download/v1.2.0/qr-code.png)
+![QR Code](https://github.com/HikaruEgashira/pleno-transcribe/releases/download/v1.4.0/qr-code.png)
 
-[Download APK](https://github.com/HikaruEgashira/pleno-transcribe/releases/download/v1.2.0/PlenoTranscribe.apk)
+[Download APK](https://github.com/HikaruEgashira/pleno-transcribe/releases/download/v1.4.0/pleno-transcribe-v1.4.0.apk)
