@@ -1,0 +1,62 @@
+appId: host.exp.exponent
+---
+# Filter Buttons Test
+- launchApp
+
+- waitForAnimationToEnd:
+    timeout: 10000
+
+# Tap on VoiceKeep or Enter URL
+- tapOn:
+    text: "VoiceKeep"
+    optional: true
+
+- tapOn:
+    text: "Enter URL"
+    optional: true
+
+- inputText:
+    text: "exp://192.168.1.128:8081"
+    optional: true
+
+- tapOn:
+    text: "Connect"
+    optional: true
+
+- waitForAnimationToEnd:
+    timeout: 15000
+
+# First navigate to home tab to ensure we're on the right screen
+- tapOn:
+    text: "ノート"
+
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Verify filter buttons on home screen
+- assertVisible:
+    text: "すべて"
+
+- assertVisible:
+    text: "文字起こし済"
+
+- assertVisible:
+    text: "要約済"
+
+# Test filter button interaction
+- tapOn:
+    text: "文字起こし済"
+
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "要約済"
+
+- waitForAnimationToEnd
+
+- tapOn:
+    text: "すべて"
+
+- waitForAnimationToEnd
+
+- takeScreenshot: filters-tested

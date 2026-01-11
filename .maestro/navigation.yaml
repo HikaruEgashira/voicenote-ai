@@ -1,0 +1,55 @@
+appId: host.exp.exponent
+---
+# Tab Navigation Test
+- launchApp
+
+- waitForAnimationToEnd:
+    timeout: 10000
+
+# Tap on VoiceKeep to open app
+- tapOn:
+    text: "VoiceKeep"
+
+- waitForAnimationToEnd:
+    timeout: 15000
+
+# Verify home screen
+- assertVisible:
+    text: "ノート"
+
+# Navigate to Record tab
+- tapOn:
+    text: "録音"
+
+- waitForAnimationToEnd
+
+# Verify record screen
+- assertVisible:
+    text: "新規録音"
+    optional: true
+
+- takeScreenshot: record-screen
+
+# Navigate to Settings tab
+- tapOn:
+    text: "設定"
+
+- waitForAnimationToEnd
+
+# Verify settings screen
+- assertVisible:
+    text: "設定"
+
+- assertVisible:
+    text: "統計"
+
+- takeScreenshot: settings-screen
+
+# Navigate back to Home
+- tapOn:
+    text: "ノート"
+
+- waitForAnimationToEnd
+
+- assertVisible:
+    text: "ノート"

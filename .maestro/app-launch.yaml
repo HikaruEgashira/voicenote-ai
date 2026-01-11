@@ -1,0 +1,28 @@
+appId: host.exp.exponent
+---
+# App Launch Test
+- launchApp
+
+# Wait for Expo Go to load
+- waitForAnimationToEnd:
+    timeout: 10000
+
+# Tap on VoiceKeep in Recently opened
+- tapOn:
+    text: "VoiceKeep"
+
+# Wait for app to load
+- waitForAnimationToEnd:
+    timeout: 15000
+
+# Verify home screen elements
+- assertVisible:
+    text: "ノート"
+    optional: false
+
+- assertVisible:
+    text: "録音を検索..."
+    optional: true
+
+# Take screenshot of initial state
+- takeScreenshot: launch-screen

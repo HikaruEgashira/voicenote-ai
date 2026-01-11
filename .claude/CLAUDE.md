@@ -28,3 +28,8 @@ packages/          # 共有ライブラリ
 - Expo 54 + React Native 0.81
 - tRPC 11 + Express
 - ElevenLabs STT, Gemini AI
+
+# Publish Guide
+- eas cloudは明示されない限り使ってはいけません
+- 基本はローカルでビルドしgh releaseする
+- 前releaseを参考にダウンロードQR画像を生成しREADMEを最新のダウンロードQRに置き換えてください

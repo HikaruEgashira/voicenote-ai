@@ -1,0 +1,60 @@
+appId: host.exp.exponent
+---
+# Settings Screen Test
+- launchApp
+
+- waitForAnimationToEnd:
+    timeout: 10000
+
+# Tap on VoiceKeep to open app
+- tapOn:
+    text: "VoiceKeep"
+
+- waitForAnimationToEnd:
+    timeout: 15000
+
+# Navigate to Settings
+- tapOn:
+    text: "設定"
+
+- waitForAnimationToEnd
+
+# Verify settings sections
+- assertVisible:
+    text: "設定"
+
+- assertVisible:
+    text: "統計"
+
+- assertVisible:
+    text: "言語設定"
+
+- assertVisible:
+    text: "文字起こしプロバイダ"
+
+- assertVisible:
+    text: "要約テンプレート"
+
+# Scroll to see more settings
+- scrollUntilVisible:
+    element:
+      text: "自動処理"
+
+- assertVisible:
+    text: "自動処理"
+
+- assertVisible:
+    text: "リアルタイム文字起こし"
+
+# Scroll more
+- scrollUntilVisible:
+    element:
+      text: "データ管理"
+
+- assertVisible:
+    text: "データ管理"
+
+- assertVisible:
+    text: "アプリ情報"
+
+- takeScreenshot: settings-full

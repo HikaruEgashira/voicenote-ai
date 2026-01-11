@@ -1,0 +1,21 @@
+appId: host.exp.exponent
+---
+# Reset app state - navigate to home
+- launchApp
+
+- waitForAnimationToEnd:
+    timeout: 5000
+
+- tapOn:
+    text: "VoiceKeep"
+
+- waitForAnimationToEnd:
+    timeout: 10000
+
+# Navigate to home tab
+- tapOn:
+    text: "ノート"
+
+- waitForAnimationToEnd
+
+- takeScreenshot: reset-state

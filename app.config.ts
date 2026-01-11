@@ -69,11 +69,9 @@ const config: ExpoConfig = {
     intentFilters: [
       {
         action: "VIEW",
-        autoVerify: true,
         data: [
           {
             scheme: env.scheme,
-            host: "*",
           },
         ],
         category: ["BROWSABLE", "DEFAULT"],

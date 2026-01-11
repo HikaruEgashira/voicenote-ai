@@ -1,0 +1,29 @@
+appId: host.exp.exponent
+---
+# Empty State Test
+- launchApp
+
+- waitForAnimationToEnd:
+    timeout: 10000
+
+# Tap on VoiceKeep to open app
+- tapOn:
+    text: "VoiceKeep"
+
+- waitForAnimationToEnd:
+    timeout: 15000
+
+# Verify empty state message on home screen
+- assertVisible:
+    text: "ノート"
+
+# Check for empty state (if no recordings exist)
+- assertVisible:
+    text: "録音がありません"
+    optional: true
+
+- assertVisible:
+    text: "最初の録音を開始しましょう"
+    optional: true
+
+- takeScreenshot: empty-state
