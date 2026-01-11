@@ -425,7 +425,7 @@ function VoiceMemoLanding() {
                 Pleno Transcribe
               </span>
             </div>
-            <div className="flex items-center gap-6 text-sm text-muted">
+            <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted">
               <a
                 href="https://github.com/HikaruEgashira/pleno-transcribe"
                 target="_blank"
@@ -433,6 +433,26 @@ function VoiceMemoLanding() {
                 className="hover:text-foreground transition-colors"
               >
                 GitHub
+              </a>
+              <a
+                href="https://natbee.pages.dev/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-foreground transition-colors"
+              >
+                運営会社
+              </a>
+              <a
+                href="/privacy"
+                className="hover:text-foreground transition-colors"
+              >
+                プライバシーポリシー
+              </a>
+              <a
+                href="/terms"
+                className="hover:text-foreground transition-colors"
+              >
+                利用規約
               </a>
               <span>© 2025 Pleno Transcribe</span>
             </div>
