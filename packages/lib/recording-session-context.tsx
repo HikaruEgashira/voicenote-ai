@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRecordings } from './recordings-context';
 import { useRealtimeTranscription } from '@/packages/hooks/use-realtime-transcription';
 import { useAudioMetering } from '@/packages/hooks/use-audio-metering';
+import { useNativeMetering } from '@/packages/hooks/use-native-metering';
 import { useBackgroundRecording } from '@/packages/hooks/use-background-recording';
 import { Recording, Highlight } from '@/packages/types/recording';
 
@@ -66,19 +67,43 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
   const [meteringHistory, setMeteringHistory] = useState<number[]>([]);
   const [fullMeteringHistory, setFullMeteringHistory] = useState<number[]>([]);
 
-  // Web: use Web Audio API via useAudioMetering hook
-  // Native: use expo-audio's useAudioRecorderState for metering
-  const webMetering = useAudioMetering(isRecording && !isPaused);
-  const recorderState = useAudioRecorderState(audioRecorder, 100);
-  const metering = Platform.OS === 'web' ? webMetering : (recorderState.metering ?? -160);
-
   const {
     state: realtimeState,
     startSession: startRealtimeSession,
     stopSession: stopRealtimeSession,
     consolidateSegments,
     mergedSegments,
+    soundLevel: realtimeSoundLevel,
   } = useRealtimeTranscription();
+
+  // Web: use Web Audio API via useAudioMetering hook
+  // Native (Android/iOS): use expo-audio-stream's soundLevel for metering
+  // Note: expo-audio's metering doesn't work reliably on Android
+  const webMetering = useAudioMetering(isRecording && !isPaused);
+  const recorderState = useAudioRecorderState(audioRecorder, 100);
+
+  // ネイティブメータリング（リアルタイム転写が無効の場合のみ使用）
+  // 注意: expo-audio と expo-audio-stream は同時に使用できないため、
+  // リアルタイム転写が有効な場合は soundLevel を使用
+  const shouldUseNativeMetering = Platform.OS !== 'web' && !realtimeEnabled && isRecording && !isPaused;
+  const nativeMetering = useNativeMetering(shouldUseNativeMetering);
+
+  // メータリング値の決定:
+  // - Web: useAudioMetering
+  // - Native + リアルタイム有効: realtimeSoundLevel から変換
+  // - Native + リアルタイム無効: useNativeMetering
+  const metering = (() => {
+    if (Platform.OS === 'web') {
+      return webMetering;
+    }
+    if (realtimeEnabled && isRecording) {
+      // soundLevel (0〜1) を dB に変換
+      const db = realtimeSoundLevel > 0 ? 20 * Math.log10(realtimeSoundLevel) : -60;
+      return Math.max(-60, Math.min(0, db));
+    }
+    // ネイティブメータリングを使用
+    return nativeMetering;
+  })();
 
   // Enable background recording for iOS/Android
   useBackgroundRecording(isRecording);

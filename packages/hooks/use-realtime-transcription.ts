@@ -43,6 +43,7 @@ export function useRealtimeTranscription() {
     connectionStatus: "disconnected",
     error: undefined,
   });
+  const [soundLevel, setSoundLevel] = useState<number>(0);
 
   const clientRef = useRef<RealtimeTranscriptionClient | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
@@ -80,12 +81,53 @@ export function useRealtimeTranscription() {
     try {
       console.log("[useRealtimeTranscription] Starting native audio streaming...");
 
+      // Base64からPCMデータをデコードしてRMSを計算する関数
+      const calculateRmsFromBase64 = (base64Data: string): number => {
+        try {
+          // Base64をバイナリに変換
+          const binaryString = atob(base64Data);
+          const len = binaryString.length;
+
+          // 16-bit PCMとしてRMSを計算
+          let sumSquares = 0;
+          let sampleCount = 0;
+
+          for (let i = 0; i < len - 1; i += 2) {
+            // Little-endian 16-bit signed integer
+            const low = binaryString.charCodeAt(i);
+            const high = binaryString.charCodeAt(i + 1);
+            let sample = (high << 8) | low;
+            // 符号付き整数に変換
+            if (sample >= 32768) sample -= 65536;
+            // 正規化 (-1 to 1)
+            const normalizedSample = sample / 32768;
+            sumSquares += normalizedSample * normalizedSample;
+            sampleCount++;
+          }
+
+          if (sampleCount === 0) return 0;
+
+          // RMS計算
+          const rms = Math.sqrt(sumSquares / sampleCount);
+          return rms;
+        } catch {
+          return 0;
+        }
+      };
+
       // 音声イベントのサブスクリプション
       audioSubscriptionRef.current = ExpoPlayAudioStream.subscribeToAudioEvents(
-        async (event: { data?: string | Float32Array }) => {
+        async (event: { data?: string | Float32Array; soundLevel?: number }) => {
           if (clientRef.current?.isConnected && event.data && typeof event.data === "string") {
             // Base64エンコードされた音声データをWebSocketに送信
             clientRef.current.sendAudioChunk(event.data, 16000);
+
+            // PCMデータからRMSを計算して soundLevel を更新
+            const rms = calculateRmsFromBase64(event.data);
+            setSoundLevel(rms);
+          } else if (event.soundLevel !== undefined) {
+            // soundLevel が直接提供されている場合はそれを使用
+            setSoundLevel(event.soundLevel);
           }
         }
       );
@@ -547,5 +589,6 @@ export function useRealtimeTranscription() {
     consolidateSegments,
     getMergedSegments,
     mergedSegments,
+    soundLevel,
   };
 }
