@@ -63,7 +63,7 @@ export default function SettingsScreen() {
     summaryTemplate: "general",
     autoTranscribe: false,
     autoSummarize: false,
-    transcriptionProvider: "gemini",
+    transcriptionProvider: "elevenlabs",
     realtimeTranscription: {
       enabled: false,
       language: "ja",
@@ -229,7 +229,7 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Transcription Provider */}
+        {/* Transcription Provider - Hidden: ElevenLabs is now default
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>文字起こしプロバイダ</Text>
           {TRANSCRIPTION_PROVIDERS.map((provider) => (
@@ -272,6 +272,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           ))}
         </View>
+        */}
 
         {/* Summary Template */}
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
