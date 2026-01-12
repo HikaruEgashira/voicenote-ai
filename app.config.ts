@@ -23,7 +23,7 @@ const env = {
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
-  version: "1.5.0",
+  version: "1.7.0",
   owner: "hikae",
   extra: {
     eas: {

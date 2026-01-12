@@ -1,6 +1,6 @@
 {
   "name": "pleno-live",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
