@@ -42,6 +42,8 @@ jobs:
 
       - name: Build website
         run: npx expo export --platform web
+        env:
+          EXPO_PUBLIC_API_URL: ${{ secrets.EXPO_PUBLIC_API_URL }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
