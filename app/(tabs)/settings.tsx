@@ -20,10 +20,12 @@ import { useColors } from "@/packages/hooks/use-colors";
 import { useThemeContext } from "@/packages/lib/theme-provider";
 import { useTranslation } from "@/packages/lib/i18n/context";
 import { trpc } from "@/packages/lib/trpc";
+import { useWhisperModel } from "@/packages/hooks/use-whisper-model";
+import type { WhisperModelSize } from "@/packages/lib/whisper/whisper-types";
 
 type SummaryTemplate = "general" | "meeting" | "interview" | "lecture" | string;
 type Language = "ja" | "en" | "auto";
-type TranscriptionProvider = "elevenlabs" | "gemini";
+type TranscriptionProvider = "elevenlabs" | "gemini" | "whisper-local";
 
 interface CustomTemplate {
   id: string;
@@ -49,12 +51,22 @@ interface SettingsState {
     enabled: boolean;
     targetLanguage: string;
   };
+  whisperSettings: {
+    modelSize: WhisperModelSize;
+    useWebGPU: boolean;
+  };
 }
 
 const LANGUAGES: { value: Language; label: string }[] = [
   { value: "auto", label: "自動検出" },
   { value: "ja", label: "日本語" },
   { value: "en", label: "English" },
+];
+
+const TRANSCRIPTION_PROVIDERS: { value: TranscriptionProvider; label: string; description: string }[] = [
+  { value: "elevenlabs", label: "ElevenLabs", description: "高精度な話者分離機能（クラウド）" },
+  { value: "whisper-local", label: "Whisper (ローカル)", description: "オフライン対応・プライバシー重視" },
+  { value: "gemini", label: "Gemini", description: "Googleのマルチモーダルモデル" },
 ];
 
 const TEMPLATES: { value: SummaryTemplate; label: string; description: string }[] = [
@@ -95,12 +107,25 @@ export default function SettingsScreen() {
       enabled: false,
       targetLanguage: "ja",
     },
+    whisperSettings: {
+      modelSize: "distil-small",
+      useWebGPU: true,
+    },
   });
 
   const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
   const [showTemplateForm, setShowTemplateForm] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplatePrompt, setNewTemplatePrompt] = useState("");
+
+  // Whisperモデル管理
+  const {
+    state: whisperState,
+    loadModel: loadWhisperModel,
+    availableModels: whisperModels,
+    isWebGPUSupported,
+    isSupported: isWhisperSupported,
+  } = useWhisperModel();
 
   // Load settings and custom templates on mount
   useEffect(() => {
@@ -120,6 +145,10 @@ export default function SettingsScreen() {
             realtimeTranslation: {
               ...prev.realtimeTranslation,
               ...(savedSettings.realtimeTranslation || {}),
+            },
+            whisperSettings: {
+              ...prev.whisperSettings,
+              ...(savedSettings.whisperSettings || {}),
             },
           }));
         }
@@ -161,6 +190,11 @@ export default function SettingsScreen() {
   const handleTemplateChange = (template: SummaryTemplate) => {
     Haptics.impact('light');
     setSettings((prev) => ({ ...prev, summaryTemplate: template }));
+  };
+
+  const handleProviderChange = (provider: TranscriptionProvider) => {
+    Haptics.impact('light');
+    setSettings((prev) => ({ ...prev, transcriptionProvider: provider }));
   };
 
   const handleToggle = (key: "autoTranscribe" | "autoSummarize" | "autoSentiment" | "autoKeywords") => {
@@ -423,10 +457,12 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Transcription Provider - Hidden: ElevenLabs is now default
+        {/* Transcription Provider */}
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>文字起こしプロバイダ</Text>
-          {TRANSCRIPTION_PROVIDERS.map((provider) => (
+          {TRANSCRIPTION_PROVIDERS.filter(
+            (p) => p.value !== "whisper-local" || (Platform.OS === "web" && isWhisperSupported)
+          ).map((provider) => (
             <TouchableOpacity
               key={provider.value}
               onPress={() => handleProviderChange(provider.value)}
@@ -466,7 +502,140 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        */}
+
+        {/* Whisper Settings - Web Only */}
+        {Platform.OS === "web" && settings.transcriptionProvider === "whisper-local" && (
+          <View style={[styles.section, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Whisper設定 (ローカル)
+            </Text>
+
+            {/* WebGPU Status */}
+            <View style={[styles.infoRow, { marginBottom: 12 }]}>
+              <Text style={[styles.infoLabel, { color: colors.muted }]}>WebGPU</Text>
+              <Text
+                style={[
+                  styles.infoValue,
+                  { color: isWebGPUSupported ? colors.success : colors.warning },
+                ]}
+              >
+                {isWebGPUSupported ? "対応" : "非対応 (WASM使用)"}
+              </Text>
+            </View>
+
+            {/* Model Selection */}
+            <Text style={[styles.optionLabel, { color: colors.muted, marginBottom: 8 }]}>
+              モデルサイズ
+            </Text>
+            {whisperModels.map((model) => (
+              <TouchableOpacity
+                key={model.id}
+                onPress={() => {
+                  Haptics.impact('light');
+                  setSettings((prev) => ({
+                    ...prev,
+                    whisperSettings: {
+                      ...prev.whisperSettings,
+                      modelSize: model.id,
+                    },
+                  }));
+                }}
+                style={[
+                  styles.templateItem,
+                  {
+                    backgroundColor:
+                      settings.whisperSettings.modelSize === model.id
+                        ? colors.primary + "15"
+                        : "transparent",
+                    borderColor:
+                      settings.whisperSettings.modelSize === model.id
+                        ? colors.primary
+                        : colors.border,
+                  },
+                ]}
+              >
+                <View style={styles.templateContent}>
+                  <Text
+                    style={[
+                      styles.templateLabel,
+                      {
+                        color:
+                          settings.whisperSettings.modelSize === model.id
+                            ? colors.primary
+                            : colors.foreground,
+                      },
+                    ]}
+                  >
+                    {model.label} ({model.size})
+                    {model.recommended && " 推奨"}
+                  </Text>
+                  <Text style={[styles.templateDescription, { color: colors.muted }]}>
+                    {model.description}
+                  </Text>
+                </View>
+                {settings.whisperSettings.modelSize === model.id && (
+                  <IconSymbol name="checkmark" size={20} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+
+            {/* Model Load Status */}
+            {whisperState.isLoading && (
+              <View style={[styles.noteBox, { backgroundColor: colors.primary + "15" }]}>
+                <IconSymbol name="arrow.down.circle.fill" size={16} color={colors.primary} />
+                <Text style={[styles.noteText, { color: colors.primary }]}>
+                  モデルをダウンロード中... {Math.round(whisperState.loadProgress)}%
+                </Text>
+              </View>
+            )}
+
+            {whisperState.isLoaded && (
+              <View style={[styles.noteBox, { backgroundColor: colors.success + "15" }]}>
+                <IconSymbol name="checkmark.circle.fill" size={16} color={colors.success} />
+                <Text style={[styles.noteText, { color: colors.success }]}>
+                  モデル読み込み完了
+                </Text>
+              </View>
+            )}
+
+            {whisperState.error && (
+              <View style={[styles.noteBox, { backgroundColor: colors.error + "15" }]}>
+                <IconSymbol name="exclamationmark.circle.fill" size={16} color={colors.error} />
+                <Text style={[styles.noteText, { color: colors.error }]}>
+                  {whisperState.error}
+                </Text>
+              </View>
+            )}
+
+            {/* Load Model Button */}
+            {!whisperState.isLoaded && !whisperState.isLoading && (
+              <TouchableOpacity
+                onPress={() =>
+                  loadWhisperModel(
+                    settings.whisperSettings.modelSize,
+                    settings.whisperSettings.useWebGPU && isWebGPUSupported
+                  )
+                }
+                style={[
+                  styles.dangerButton,
+                  { borderColor: colors.primary, marginTop: 12 },
+                ]}
+              >
+                <IconSymbol name="arrow.down.circle" size={20} color={colors.primary} />
+                <Text style={[styles.dangerButtonText, { color: colors.primary }]}>
+                  モデルをダウンロード
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <View style={[styles.noteBox, { backgroundColor: colors.warning + "15", marginTop: 12 }]}>
+              <IconSymbol name="exclamationmark.triangle.fill" size={16} color={colors.warning} />
+              <Text style={[styles.noteText, { color: colors.warning }]}>
+                ローカル処理のためリアルタイム性は3秒程度の遅延があります
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Summary Template */}
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
