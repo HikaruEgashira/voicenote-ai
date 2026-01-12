@@ -1,159 +1,208 @@
 /**
- * ローカルWhisperモデル管理フック
- * Web環境でのみ動作
+ * Whisperモデル管理Hook
+ *
+ * Whisperモデルのロード、状態管理、文字起こしを提供するReact Hook
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import type { WhisperModelSize } from '@/packages/lib/whisper/whisper-types';
-import { getWhisperService, type WhisperEventType, type WhisperEvent } from '@/packages/lib/whisper/whisper-service';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Platform } from "react-native";
+import {
+  getWhisperService,
+  WhisperService,
+  type WhisperEvent,
+} from "@/packages/lib/whisper/whisper-service";
+import type {
+  WhisperModelSize,
+  WhisperModelState,
+  WhisperTranscriptionResult,
+  WhisperTranscriptionOptions,
+  WhisperModelConfig,
+} from "@/packages/lib/whisper/whisper-types";
 
-export interface UseWhisperModelState {
-  isLoading: boolean;
-  isLoaded: boolean;
-  loadProgress: number;
-  currentModel: WhisperModelSize | null;
-  error: string | null;
-  webGPUSupported: boolean;
+export interface UseWhisperModelOptions {
+  autoLoad?: boolean;
+  defaultModel?: WhisperModelSize;
+  useWebGPU?: boolean;
 }
 
-export function useWhisperModel() {
-  const serviceRef = useRef(getWhisperService());
-  const [state, setState] = useState<UseWhisperModelState>(() => {
-    const service = serviceRef.current;
-    return service.getState();
+export interface UseWhisperModelReturn {
+  state: WhisperModelState;
+  loadModel: (modelSize: WhisperModelSize, useWebGPU?: boolean) => Promise<void>;
+  unloadModel: () => void;
+  transcribe: (audioData: Float32Array, options?: WhisperTranscriptionOptions) => Promise<void>;
+  startRealtimeSession: (options?: WhisperTranscriptionOptions) => void;
+  addAudioChunk: (chunk: Float32Array) => void;
+  stopRealtimeSession: (options?: WhisperTranscriptionOptions) => Promise<void>;
+  lastResult: WhisperTranscriptionResult | null;
+  availableModels: WhisperModelConfig[];
+  isWebGPUSupported: boolean;
+  isSupported: boolean;
+}
+
+export function useWhisperModel(
+  options: UseWhisperModelOptions = {}
+): UseWhisperModelReturn {
+  const { autoLoad = false, defaultModel = "distil-small", useWebGPU = true } = options;
+
+  // Webプラットフォームでのみサポート
+  const isSupported = Platform.OS === "web";
+
+  const serviceRef = useRef<WhisperService | null>(null);
+  const [state, setState] = useState<WhisperModelState>({
+    isLoading: false,
+    isLoaded: false,
+    loadProgress: 0,
+    currentModel: null,
+    error: null,
+    webGPUSupported: false,
   });
+  const [lastResult, setLastResult] = useState<WhisperTranscriptionResult | null>(null);
+  const [availableModels, setAvailableModels] = useState<WhisperModelConfig[]>([]);
+  const [isWebGPUSupported, setIsWebGPUSupported] = useState(false);
+
+  // サービス初期化
+  useEffect(() => {
+    if (!isSupported) return;
+
+    const service = getWhisperService();
+    serviceRef.current = service;
+
+    // 初期状態を取得
+    setState(service.getState());
+    setAvailableModels(service.getAvailableModels());
+    setIsWebGPUSupported(service.isWebGPUSupported());
+
+    // イベントハンドラを登録
+    const unsubscribeLoading = service.on("modelLoading", () => {
+      setState((prev) => ({
+        ...prev,
+        isLoading: true,
+        error: null,
+      }));
+    });
+
+    const unsubscribeProgress = service.on("progress", (event: WhisperEvent) => {
+      setState((prev) => ({
+        ...prev,
+        loadProgress: event.data?.progress ?? prev.loadProgress,
+      }));
+    });
+
+    const unsubscribeLoaded = service.on("modelLoaded", () => {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        isLoaded: true,
+        loadProgress: 100,
+      }));
+    });
+
+    const unsubscribeTranscription = service.on("transcription", (event: WhisperEvent) => {
+      if (event.data?.result) {
+        setLastResult(event.data.result);
+      }
+    });
+
+    const unsubscribeError = service.on("error", (event: WhisperEvent) => {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: event.data?.error ?? "Unknown error",
+      }));
+    });
+
+    // 自動ロード
+    if (autoLoad) {
+      service.loadModel(defaultModel, useWebGPU);
+    }
+
+    return () => {
+      unsubscribeLoading();
+      unsubscribeProgress();
+      unsubscribeLoaded();
+      unsubscribeTranscription();
+      unsubscribeError();
+    };
+  }, [isSupported, autoLoad, defaultModel, useWebGPU]);
 
   // モデルをロード
-  const loadModel = useCallback(async (modelSize: WhisperModelSize, useWebGPU = false) => {
-    const service = serviceRef.current;
-    try {
-      await service.loadModel(modelSize, useWebGPU);
-    } catch (error) {
-      console.error('[useWhisperModel] Failed to load model:', error);
-    }
-  }, []);
+  const loadModel = useCallback(
+    async (modelSize: WhisperModelSize, webGPU?: boolean): Promise<void> => {
+      if (!isSupported || !serviceRef.current) return;
 
-  // 文字起こしを実行
-  const transcribe = useCallback(
-    async (audioData: Float32Array, options: { language?: string } = {}) => {
-      const service = serviceRef.current;
-      return new Promise<string>((resolve, reject) => {
-        const unsubscribe = service.on('transcription', (event: WhisperEvent) => {
-          unsubscribe();
-          if (event.data?.result?.text) {
-            resolve(event.data.result.text);
-          } else {
-            reject(new Error('No transcription result'));
-          }
-        });
+      setState((prev) => ({
+        ...prev,
+        currentModel: modelSize,
+        error: null,
+      }));
 
-        // エラーハンドリング
-        const unsubscribeError = service.on('error', (event: WhisperEvent) => {
-          unsubscribeError();
-          unsubscribe();
-          reject(new Error(event.data?.error || 'Transcription error'));
-        });
-
-        // タイムアウト（60秒）
-        const timeoutId = setTimeout(() => {
-          unsubscribe();
-          unsubscribeError();
-          reject(new Error('Transcription timeout'));
-        }, 60000);
-
-        try {
-          service.transcribe(audioData, { language: options.language || 'ja' });
-        } catch (error) {
-          clearTimeout(timeoutId);
-          unsubscribe();
-          unsubscribeError();
-          reject(error);
-        }
-      });
+      await serviceRef.current.loadModel(modelSize, webGPU ?? useWebGPU);
     },
-    []
+    [isSupported, useWebGPU]
   );
-
-  // リアルタイムセッション管理
-  const startRealtimeSession = useCallback(() => {
-    const service = serviceRef.current;
-    service.startRealtimeSession({ language: 'ja' });
-  }, []);
-
-  const addAudioChunk = useCallback((chunk: Float32Array) => {
-    const service = serviceRef.current;
-    service.addAudioChunk(chunk);
-  }, []);
-
-  const stopRealtimeSession = useCallback(async () => {
-    const service = serviceRef.current;
-    await service.stopRealtimeSession({ language: 'ja' });
-  }, []);
 
   // モデルをアンロード
   const unloadModel = useCallback(() => {
-    const service = serviceRef.current;
-    service.unloadModel();
-  }, []);
+    if (!isSupported || !serviceRef.current) return;
+    serviceRef.current.unloadModel();
+    setState((prev) => ({
+      ...prev,
+      isLoaded: false,
+      currentModel: null,
+    }));
+  }, [isSupported]);
 
-  // イベントリスナー登録
-  useEffect(() => {
-    const service = serviceRef.current;
+  // 文字起こし（バッチ）
+  const transcribe = useCallback(
+    async (
+      audioData: Float32Array,
+      transcriptionOptions?: WhisperTranscriptionOptions
+    ): Promise<void> => {
+      if (!isSupported || !serviceRef.current) return;
+      await serviceRef.current.transcribe(audioData, transcriptionOptions);
+    },
+    [isSupported]
+  );
 
-    const eventHandlers: Partial<Record<WhisperEventType, (event: WhisperEvent) => void>> = {
-      modelLoading: () => {
-        setState((prev) => ({ ...prev, isLoading: true }));
-      },
-      modelLoaded: () => {
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          isLoaded: true,
-          loadProgress: 100,
-        }));
-      },
-      progress: (event) => {
-        setState((prev) => ({
-          ...prev,
-          loadProgress: event.data?.progress ?? prev.loadProgress,
-        }));
-      },
-      error: (event) => {
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          error: event.data?.error ?? 'Unknown error',
-        }));
-      },
-    };
+  // リアルタイムセッション開始
+  const startRealtimeSession = useCallback(
+    (transcriptionOptions?: WhisperTranscriptionOptions): void => {
+      if (!isSupported || !serviceRef.current) return;
+      serviceRef.current.startRealtimeSession(transcriptionOptions);
+    },
+    [isSupported]
+  );
 
-    const unsubscribers = Object.entries(eventHandlers).map(([type, handler]) => {
-      if (handler) {
-        return service.on(type as WhisperEventType, handler);
-      }
-      return () => {};
-    });
+  // 音声チャンク追加
+  const addAudioChunk = useCallback(
+    (chunk: Float32Array): void => {
+      if (!isSupported || !serviceRef.current) return;
+      serviceRef.current.addAudioChunk(chunk);
+    },
+    [isSupported]
+  );
 
-    return () => {
-      unsubscribers.forEach((unsubscribe) => unsubscribe());
-    };
-  }, []);
-
-  // クリーンアップ
-  useEffect(() => {
-    return () => {
-      // コンポーネントアンマウント時はサービスを保持（シングルトン）
-    };
-  }, []);
+  // リアルタイムセッション停止
+  const stopRealtimeSession = useCallback(
+    async (transcriptionOptions?: WhisperTranscriptionOptions): Promise<void> => {
+      if (!isSupported || !serviceRef.current) return;
+      await serviceRef.current.stopRealtimeSession(transcriptionOptions);
+    },
+    [isSupported]
+  );
 
   return {
     state,
     loadModel,
+    unloadModel,
     transcribe,
     startRealtimeSession,
     addAudioChunk,
     stopRealtimeSession,
-    unloadModel,
+    lastResult,
+    availableModels,
+    isWebGPUSupported,
+    isSupported,
   };
 }
 
