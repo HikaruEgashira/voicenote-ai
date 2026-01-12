@@ -95,7 +95,7 @@ export default function TermsPage() {
       <header className="border-b border-border">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <a href="/" className="flex items-center gap-2">
+            <a href="/pleno-live/" className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
                 <Mic className="w-4 h-4 text-white" />
               </div>
@@ -105,7 +105,7 @@ export default function TermsPage() {
             </a>
             <div className="flex items-center gap-4">
               <a
-                href="https://github.com/HikaruEgashira/pleno-live"
+                href="https://github.com/HikaruEgashira/pleno-transcribe"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2 rounded-lg hover:bg-surface transition-colors"
@@ -114,7 +114,7 @@ export default function TermsPage() {
                 <Github className="h-5 w-5 text-muted hover:text-foreground" />
               </a>
               <a
-                href="/"
+                href="/pleno-live/"
                 className="flex items-center gap-2 text-sm text-muted hover:text-foreground transition-colors"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -285,7 +285,7 @@ export default function TermsPage() {
             <p>
               ユーザーの個人情報および音声データの取り扱いについては、別途定める
               <a
-                href="/privacy"
+                href="/pleno-live/privacy"
                 className="text-primary hover:underline mx-1"
               >
                 プライバシーポリシー
@@ -316,7 +316,7 @@ export default function TermsPage() {
             <p>
               本規約に関するお問い合わせは、GitHubの
               <a
-                href="https://github.com/HikaruEgashira/pleno-live/issues"
+                href="https://github.com/HikaruEgashira/pleno-transcribe/issues"
                 className="text-primary hover:underline ml-1"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -333,7 +333,7 @@ export default function TermsPage() {
               本アプリをインストールまたは使用することにより、
               <br className="hidden md:block" />
               ユーザーは本利用規約および
-              <a href="/privacy" className="text-primary hover:underline mx-1">
+              <a href="/pleno-live/privacy" className="text-primary hover:underline mx-1">
                 プライバシーポリシー
               </a>
               に同意したものとみなされます。

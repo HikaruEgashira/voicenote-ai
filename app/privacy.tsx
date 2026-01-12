@@ -94,7 +94,7 @@ export default function PrivacyPage() {
             <Pressable
               onPress={() =>
                 Linking.openURL(
-                  "https://github.com/HikaruEgashira/pleno-live/issues"
+                  "https://github.com/HikaruEgashira/pleno-transcribe/issues"
                 )
               }
             >

@@ -228,7 +228,7 @@ function VoiceMemoLanding() {
                 Features
               </a>
               <a
-                href="https://github.com/HikaruEgashira/pleno-live/releases"
+                href="https://github.com/HikaruEgashira/pleno-transcribe/releases"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -286,10 +286,10 @@ function VoiceMemoLanding() {
                 animate="visible"
                 className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
               >
-                <a href="https://github.com/HikaruEgashira/pleno-live/releases">
+                <a href="https://github.com/HikaruEgashira/pleno-transcribe/releases">
                   <Button size="lg">Download App</Button>
                 </a>
-                <a href="https://github.com/HikaruEgashira/pleno-live">
+                <a href="https://github.com/HikaruEgashira/pleno-transcribe">
                   <Button size="lg" variant="outline">
                     View on GitHub
                   </Button>
@@ -402,10 +402,10 @@ function VoiceMemoLanding() {
               アプリをダウンロードして、声をナレッジに変換しましょう
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <a href="https://github.com/HikaruEgashira/pleno-live/releases">
+              <a href="https://github.com/HikaruEgashira/pleno-transcribe/releases">
                 <Button size="lg">Download Now</Button>
               </a>
-              <a href="https://github.com/HikaruEgashira/pleno-live">
+              <a href="https://github.com/HikaruEgashira/pleno-transcribe">
                 <Button size="lg" variant="outline">
                   Star on GitHub
                 </Button>
@@ -427,7 +427,7 @@ function VoiceMemoLanding() {
             </div>
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted">
               <a
-                href="https://github.com/HikaruEgashira/pleno-live"
+                href="https://github.com/HikaruEgashira/pleno-transcribe"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:text-foreground transition-colors"
@@ -443,13 +443,13 @@ function VoiceMemoLanding() {
                 運営会社
               </a>
               <a
-                href="/privacy"
+                href="/pleno-live/privacy"
                 className="hover:text-foreground transition-colors"
               >
                 プライバシーポリシー
               </a>
               <a
-                href="/terms"
+                href="/pleno-live/terms"
                 className="hover:text-foreground transition-colors"
               >
                 利用規約
