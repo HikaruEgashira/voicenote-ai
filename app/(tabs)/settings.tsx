@@ -37,6 +37,8 @@ interface SettingsState {
   summaryTemplate: SummaryTemplate;
   autoTranscribe: boolean;
   autoSummarize: boolean;
+  autoSentiment: boolean;
+  autoKeywords: boolean;
   transcriptionProvider: TranscriptionProvider;
   realtimeTranscription: {
     enabled: boolean;
@@ -81,6 +83,8 @@ export default function SettingsScreen() {
     summaryTemplate: "general",
     autoTranscribe: true,
     autoSummarize: true,
+    autoSentiment: false,
+    autoKeywords: false,
     transcriptionProvider: "elevenlabs",
     realtimeTranscription: {
       enabled: true,
@@ -159,7 +163,7 @@ export default function SettingsScreen() {
     setSettings((prev) => ({ ...prev, summaryTemplate: template }));
   };
 
-  const handleToggle = (key: "autoTranscribe" | "autoSummarize") => {
+  const handleToggle = (key: "autoTranscribe" | "autoSummarize" | "autoSentiment" | "autoKeywords") => {
     Haptics.impact('light');
     setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
   };
@@ -639,6 +643,34 @@ export default function SettingsScreen() {
             <Switch
               value={settings.autoSummarize}
               onValueChange={() => handleToggle("autoSummarize")}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleContent}>
+              <Text style={[styles.toggleLabel, { color: colors.foreground }]}>自動キーワード抽出</Text>
+              <Text style={[styles.toggleDescription, { color: colors.muted }]}>
+                要約完了後に自動でキーワードを抽出
+              </Text>
+            </View>
+            <Switch
+              value={settings.autoKeywords}
+              onValueChange={() => handleToggle("autoKeywords")}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleContent}>
+              <Text style={[styles.toggleLabel, { color: colors.foreground }]}>自動感情分析</Text>
+              <Text style={[styles.toggleDescription, { color: colors.muted }]}>
+                要約完了後に自動で感情分析を実行
+              </Text>
+            </View>
+            <Switch
+              value={settings.autoSentiment}
+              onValueChange={() => handleToggle("autoSentiment")}
               trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor="#FFFFFF"
             />
