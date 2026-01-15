@@ -12,6 +12,9 @@ describe("Recording Types", () => {
       updatedAt: new Date(),
       highlights: [],
       notes: "",
+      tags: [],
+      actionItems: [],
+      keywords: [],
       qaHistory: [],
       status: "saved",
     };
@@ -104,6 +107,9 @@ describe("Recording Types", () => {
       updatedAt: new Date(),
       highlights: [],
       notes: "",
+      tags: [],
+      actionItems: [],
+      keywords: [],
       qaHistory: [],
       status: "saved",
     };
