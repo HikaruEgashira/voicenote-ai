@@ -19,6 +19,7 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 import { trpc, createTRPCClient } from "@/packages/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/packages/lib/_core/manus-runtime";
 import { RecordingsProvider } from "@/packages/lib/recordings-context";
+import { LanguageProvider } from "@/packages/lib/i18n/context";
 
 function AppProviders({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -37,7 +38,9 @@ function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <RecordingsProvider>{children}</RecordingsProvider>
+        <LanguageProvider>
+          <RecordingsProvider>{children}</RecordingsProvider>
+        </LanguageProvider>
       </QueryClientProvider>
     </trpc.Provider>
   );
