@@ -34,6 +34,23 @@ export interface Summary {
   processedAt: Date;
 }
 
+export type TemplateType = 'general' | 'meeting' | 'interview' | 'lecture' | 'custom';
+
+export interface SummaryTemplate {
+  id: string;
+  name: string;
+  type: TemplateType;
+  prompt: string; // Custom prompt for LLM
+  sections: {
+    name: string;
+    description: string;
+    itemCount?: number; // For lists like bullet points
+  }[];
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface QAReference {
   startTime: number;
   endTime: number;
