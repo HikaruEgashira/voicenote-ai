@@ -42,6 +42,8 @@ export default function NoteDetailScreen() {
   const [qaInput, setQaInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcriptionProvider, setTranscriptionProvider] = useState<"elevenlabs" | "gemini">("gemini");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState("");
 
   const recording = getRecording(id || "");
   const player = useAudioPlayer(recording?.audioUri || "");
@@ -353,6 +355,23 @@ const handleSummarize = async () => {
     updateRecording(recording.id, { actionItems: updatedItems });
   };
 
+  const handleStartEditTitle = () => {
+    if (!recording) return;
+    setEditedTitle(recording.title);
+    setIsEditingTitle(true);
+  };
+
+  const handleSaveTitle = () => {
+    if (!recording || !editedTitle.trim()) return;
+    updateRecording(recording.id, { title: editedTitle.trim() });
+    setIsEditingTitle(false);
+  };
+
+  const handleCancelEditTitle = () => {
+    setIsEditingTitle(false);
+    setEditedTitle("");
+  };
+
   const handleExtractKeywords = async () => {
     if (!recording?.transcript) return;
 
@@ -527,9 +546,31 @@ const handleSummarize = async () => {
             <IconSymbol name="arrow.left" size={20} color={colors.foreground} />
           </TouchableOpacity>
           <View style={styles.headerTitle}>
-            <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
-              {recording.title}
-            </Text>
+            {isEditingTitle ? (
+              <View style={styles.titleEditRow}>
+                <TextInput
+                  style={[styles.titleInput, { color: colors.foreground, borderColor: colors.border }]}
+                  value={editedTitle}
+                  onChangeText={setEditedTitle}
+                  autoFocus
+                  onSubmitEditing={handleSaveTitle}
+                  returnKeyType="done"
+                />
+                <TouchableOpacity onPress={handleSaveTitle} style={styles.titleEditButton}>
+                  <IconSymbol name="checkmark" size={18} color={colors.success} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleCancelEditTitle} style={styles.titleEditButton}>
+                  <IconSymbol name="xmark" size={18} color={colors.error} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity onPress={handleStartEditTitle} style={styles.titleTouchable}>
+                <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
+                  {recording.title}
+                </Text>
+                <IconSymbol name="pencil" size={14} color={colors.muted} />
+              </TouchableOpacity>
+            )}
             <Text style={[styles.subtitle, { color: colors.muted }]}>
               {formatTime(recording.duration)}
             </Text>
@@ -1246,6 +1287,28 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
     marginTop: 2,
+  },
+  titleTouchable: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  titleEditRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  titleInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "600",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  titleEditButton: {
+    padding: 4,
   },
   tabBar: {
     flexDirection: "row",
