@@ -4,6 +4,7 @@
  */
 
 import type { PlatformFileSystem } from './index';
+import { EncodingType } from './index';
 
 // Web版のファイルストレージ（メモリ内）
 const fileStorage = new Map<string, string>();
@@ -13,6 +14,13 @@ export const FileSystem: PlatformFileSystem = {
     // Web では仮想的なディレクトリパスを返す
     return 'web-storage://';
   },
+
+  get cacheDirectory(): string | null {
+    // Web では仮想的なキャッシュディレクトリパスを返す
+    return 'web-cache://';
+  },
+
+  EncodingType,
 
   async readAsBase64(uri: string): Promise<string> {
     // Data URI の場合
@@ -39,6 +47,17 @@ export const FileSystem: PlatformFileSystem = {
 
   async writeAsBase64(uri: string, base64: string): Promise<void> {
     fileStorage.set(uri, base64);
+  },
+
+  async writeAsString(uri: string, content: string, options?: { encoding?: EncodingType }): Promise<void> {
+    if (options?.encoding === EncodingType.Base64) {
+      // Base64エンコーディングが指定されている場合
+      const encoded = btoa(content);
+      fileStorage.set(uri, encoded);
+    } else {
+      // UTF-8（デフォルト）
+      fileStorage.set(uri, content);
+    }
   },
 
   async moveAsync(from: string, to: string): Promise<void> {

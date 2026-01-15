@@ -5,11 +5,18 @@
 
 import * as ExpoFileSystem from 'expo-file-system/legacy';
 import type { PlatformFileSystem } from './index';
+import { EncodingType } from './index';
 
 export const FileSystem: PlatformFileSystem = {
   get documentDirectory(): string | null {
     return ExpoFileSystem.documentDirectory;
   },
+
+  get cacheDirectory(): string | null {
+    return ExpoFileSystem.cacheDirectory;
+  },
+
+  EncodingType,
 
   async readAsBase64(uri: string): Promise<string> {
     return ExpoFileSystem.readAsStringAsync(uri, {
@@ -21,6 +28,13 @@ export const FileSystem: PlatformFileSystem = {
     await ExpoFileSystem.writeAsStringAsync(uri, base64, {
       encoding: ExpoFileSystem.EncodingType.Base64,
     });
+  },
+
+  async writeAsString(uri: string, content: string, options?: { encoding?: EncodingType }): Promise<void> {
+    const encoding = options?.encoding === EncodingType.Base64
+      ? ExpoFileSystem.EncodingType.Base64
+      : ExpoFileSystem.EncodingType.UTF8;
+    await ExpoFileSystem.writeAsStringAsync(uri, content, { encoding });
   },
 
   async moveAsync(from: string, to: string): Promise<void> {

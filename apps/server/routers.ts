@@ -380,8 +380,15 @@ JSON形式で以下のように出力してください:
           }
 
           // Extract JSON from response (handle markdown code blocks)
-          const jsonMatch = content.match(/\[[\s\S]*\]/);
-          const jsonStr = jsonMatch ? jsonMatch[0] : content;
+          const contentStr = Array.isArray(content)
+            ? content.map(c => {
+                if (typeof c === 'string') return c;
+                if ('text' in c && typeof c.text === 'string') return c.text;
+                return '';
+              }).join('')
+            : String(content);
+          const jsonMatch = contentStr.match(/\[[\s\S]*\]/);
+          const jsonStr = jsonMatch ? jsonMatch[0] : contentStr;
           const parsed = JSON.parse(jsonStr);
 
           // Validate and format response
@@ -454,8 +461,15 @@ JSON形式で以下のように出力してください:
           }
 
           // Extract JSON from response
-          const jsonMatch = content.match(/\[[\s\S]*\]/);
-          const jsonStr = jsonMatch ? jsonMatch[0] : content;
+          const contentStr = Array.isArray(content)
+            ? content.map(c => {
+                if (typeof c === 'string') return c;
+                if ('text' in c && typeof c.text === 'string') return c.text;
+                return '';
+              }).join('')
+            : String(content);
+          const jsonMatch = contentStr.match(/\[[\s\S]*\]/);
+          const jsonStr = jsonMatch ? jsonMatch[0] : contentStr;
           const parsed = JSON.parse(jsonStr);
 
           // Validate and format response
@@ -540,8 +554,15 @@ JSON形式で以下のように出力してください:
           }
 
           // Extract JSON from response
-          const jsonMatch = content.match(/\{[\s\S]*\}/);
-          const jsonStr = jsonMatch ? jsonMatch[0] : content;
+          const contentStr = Array.isArray(content)
+            ? content.map(c => {
+                if (typeof c === 'string') return c;
+                if ('text' in c && typeof c.text === 'string') return c.text;
+                return '';
+              }).join('')
+            : String(content);
+          const jsonMatch = contentStr.match(/\{[\s\S]*\}/);
+          const jsonStr = jsonMatch ? jsonMatch[0] : contentStr;
           const parsed = JSON.parse(jsonStr);
 
           // Validate and format response
@@ -626,8 +647,15 @@ JSON形式で以下のように出力してください:
           }
 
           // Extract JSON from response
-          const jsonMatch = content.match(/\[[\s\S]*\]/);
-          const jsonStr = jsonMatch ? jsonMatch[0] : content;
+          const contentStr = Array.isArray(content)
+            ? content.map(c => {
+                if (typeof c === 'string') return c;
+                if ('text' in c && typeof c.text === 'string') return c.text;
+                return '';
+              }).join('')
+            : String(content);
+          const jsonMatch = contentStr.match(/\[[\s\S]*\]/);
+          const jsonStr = jsonMatch ? jsonMatch[0] : contentStr;
           const parsed = JSON.parse(jsonStr);
 
           // Calculate startIndex for each keyword in the original text
