@@ -261,34 +261,6 @@ const RecordingCard = React.memo(function RecordingCard({
         </View>
       )}
 
-      {recording.tags.length > 0 && (
-        <View style={styles.tagsRow}>
-          {recording.tags.slice(0, 3).map((tag) => (
-            <View
-              key={tag.id}
-              style={[
-                styles.tagChip,
-                { backgroundColor: tag.color || colors.primary + "20" },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.tagChipText,
-                  { color: tag.color ? "#FFFFFF" : colors.primary },
-                ]}
-              >
-                {tag.name}
-              </Text>
-            </View>
-          ))}
-          {recording.tags.length > 3 && (
-            <Text style={[styles.moreTagsText, { color: colors.muted }]}>
-              +{recording.tags.length - 3}
-            </Text>
-          )}
-        </View>
-      )}
-
       {recording.transcript && (
         <Text style={[styles.preview, { color: colors.muted }]} numberOfLines={2}>
           {recording.transcript.text.substring(0, 100)}...
