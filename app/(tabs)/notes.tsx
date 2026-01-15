@@ -337,6 +337,7 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "transcribed" | "summarized">("all");
+  const [hasHighlightsFilter, setHasHighlightsFilter] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "longest" | "shortest">("newest");
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -384,6 +385,11 @@ export default function HomeScreen() {
       result = result.filter((r) => r.summary);
     }
 
+    // Apply highlights filter
+    if (hasHighlightsFilter) {
+      result = result.filter((r) => r.highlights.length > 0);
+    }
+
     // Apply tag filter
     if (selectedTag) {
       result = result.filter((r) => r.tags.some((t) => t.name === selectedTag));
@@ -406,7 +412,7 @@ export default function HomeScreen() {
     });
 
     return result;
-  }, [state.recordings, debouncedSearchQuery, filter, selectedTag, sortOrder]);
+  }, [state.recordings, debouncedSearchQuery, filter, hasHighlightsFilter, selectedTag, sortOrder]);
 
   // コールバックをメモ化してRecordingCardの再レンダリングを防止
   const handleRecordingPress = useCallback((id: string) => {
@@ -554,6 +560,28 @@ export default function HomeScreen() {
               </Text>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity
+            onPress={() => setHasHighlightsFilter(!hasHighlightsFilter)}
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: hasHighlightsFilter ? colors.highlight + "20" : colors.surface,
+                borderColor: hasHighlightsFilter ? colors.highlight : colors.border,
+              },
+            ]}
+          >
+            <View style={styles.filterButtonContent}>
+              <IconSymbol name="star.fill" size={12} color={hasHighlightsFilter ? colors.highlight : colors.muted} />
+              <Text
+                style={[
+                  styles.filterText,
+                  { color: hasHighlightsFilter ? colors.highlight : colors.muted },
+                ]}
+              >
+                ハイライト
+              </Text>
+            </View>
+          </TouchableOpacity>
         </View>
         <TouchableOpacity
           onPress={() => {
@@ -772,6 +800,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
+  },
+  filterButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   filterText: {
     fontSize: 13,
