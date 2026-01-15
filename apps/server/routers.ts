@@ -159,6 +159,7 @@ export const appRouter = router({
       .input(z.object({
         text: z.string(),
         template: z.enum(["general", "meeting", "interview", "lecture"]).default("general"),
+        customPrompt: z.string().optional(),
       }))
       .mutation(async ({ input }) => {
         const templatePrompts = {
@@ -167,6 +168,9 @@ export const appRouter = router({
           interview: "以下のインタビューの文字起こしを要約してください。主要なトピック、重要な発言、結論を含めてください。",
           lecture: "以下の講義の文字起こしを要約してください。主要なトピック、重要な概念、学習ポイントを含めてください。",
         };
+
+        // Use custom prompt if provided, otherwise use template prompt
+        const prompt = input.customPrompt || templatePrompts[input.template];
 
         try {
           const result = await invokeLLM({
@@ -177,7 +181,7 @@ export const appRouter = router({
               },
               {
                 role: "user",
-                content: `${templatePrompts[input.template]}\n\nテキスト:\n${input.text}`,
+                content: `${prompt}\n\nテキスト:\n${input.text}`,
               },
             ],
             maxTokens: 1500,
