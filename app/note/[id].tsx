@@ -133,6 +133,34 @@ export default function NoteDetailScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recording?.transcript]); // Re-run only when transcript changes to avoid infinite loops
 
+  // Auto keywords and sentiment when summary completes
+  useEffect(() => {
+    const autoProcess = async () => {
+      try {
+        const saved = await Storage.getItem("app-settings");
+        if (saved && recording && recording.summary && recording.transcript) {
+          const settings = JSON.parse(saved);
+
+          // Auto keywords extraction if enabled and not already extracted
+          if (settings.autoKeywords && recording.keywords.length === 0 && !isProcessing) {
+            console.log("[Auto] Starting auto-keyword extraction");
+            handleExtractKeywords();
+          }
+
+          // Auto sentiment analysis if enabled and not already analyzed
+          if (settings.autoSentiment && !recording.sentiment && !isProcessing) {
+            console.log("[Auto] Starting auto-sentiment analysis");
+            handleAnalyzeSentiment();
+          }
+        }
+      } catch (error) {
+        console.error("Failed to auto-process:", error);
+      }
+    };
+    autoProcess();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recording?.summary]); // Re-run only when summary changes to avoid infinite loops
+
   // Transcription mutation
   const transcribeMutation = trpc.ai.transcribe.useMutation();
 
