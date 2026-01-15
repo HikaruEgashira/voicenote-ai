@@ -318,6 +318,44 @@ export default function HomeScreen() {
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [showSearchHistory, setShowSearchHistory] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [activeSmartFolder, setActiveSmartFolder] = useState<string | null>(null);
+
+  // スマートフォルダの定義
+  const smartFolders = useMemo(() => [
+    {
+      id: "unprocessed",
+      name: "未処理",
+      icon: "clock.fill" as const,
+      filter: (r: Recording) => !r.transcript && !r.summary,
+      color: colors.warning,
+    },
+    {
+      id: "this-week",
+      name: "今週",
+      icon: "calendar" as const,
+      filter: (r: Recording) => {
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return new Date(r.createdAt) >= weekAgo;
+      },
+      color: colors.primary,
+    },
+    {
+      id: "high-priority",
+      name: "重要タスク",
+      icon: "exclamationmark.triangle.fill" as const,
+      filter: (r: Recording) =>
+        r.actionItems.some((a) => a.priority === "high" && !a.completed),
+      color: colors.error,
+    },
+    {
+      id: "positive-sentiment",
+      name: "ポジティブ",
+      icon: "face.smiling" as const,
+      filter: (r: Recording) => r.sentiment?.overallSentiment === "positive",
+      color: colors.success,
+    },
+  ], [colors]);
 
   // 表示モードに基づいてカラム数を計算
   const effectiveColumns = useMemo(() => {
@@ -436,6 +474,14 @@ export default function HomeScreen() {
       result = result.filter((r) => r.tags.some((t) => t.name === selectedTag));
     }
 
+    // Apply smart folder filter
+    if (activeSmartFolder) {
+      const folder = smartFolders.find((f) => f.id === activeSmartFolder);
+      if (folder) {
+        result = result.filter(folder.filter);
+      }
+    }
+
     // Apply sort
     result = [...result].sort((a, b) => {
       switch (sortOrder) {
@@ -453,7 +499,7 @@ export default function HomeScreen() {
     });
 
     return result;
-  }, [state.recordings, debouncedSearchQuery, filter, hasHighlightsFilter, hasPendingActionsFilter, selectedTag, sortOrder]);
+  }, [state.recordings, debouncedSearchQuery, filter, hasHighlightsFilter, hasPendingActionsFilter, selectedTag, activeSmartFolder, smartFolders, sortOrder]);
 
   // コールバックをメモ化してRecordingCardの再レンダリングを防止
   const handleRecordingPress = useCallback((id: string) => {
@@ -558,6 +604,51 @@ export default function HomeScreen() {
             </TouchableOpacity>
           )}
         </View>
+      </View>
+
+      {/* Smart Folders */}
+      <View style={styles.smartFoldersRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.smartFoldersContent}
+        >
+          {smartFolders.map((folder) => {
+            const count = state.recordings.filter(folder.filter).length;
+            const isActive = activeSmartFolder === folder.id;
+            return (
+              <TouchableOpacity
+                key={folder.id}
+                onPress={() => {
+                  Haptics.impact("light");
+                  setActiveSmartFolder(isActive ? null : folder.id);
+                }}
+                style={[
+                  styles.smartFolderButton,
+                  {
+                    backgroundColor: isActive ? folder.color + "20" : colors.surface,
+                    borderColor: isActive ? folder.color : colors.border,
+                  },
+                ]}
+              >
+                <IconSymbol name={folder.icon} size={14} color={isActive ? folder.color : colors.muted} />
+                <Text
+                  style={[
+                    styles.smartFolderText,
+                    { color: isActive ? folder.color : colors.muted },
+                  ]}
+                >
+                  {folder.name}
+                </Text>
+                <View style={[styles.smartFolderBadge, { backgroundColor: isActive ? folder.color : colors.muted + "30" }]}>
+                  <Text style={[styles.smartFolderBadgeText, { color: isActive ? "#FFFFFF" : colors.muted }]}>
+                    {count}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       <View style={styles.searchWrapper}>
@@ -869,6 +960,38 @@ const styles = StyleSheet.create({
   selectModeText: {
     fontSize: 14,
     fontWeight: "500",
+  },
+  smartFoldersRow: {
+    marginBottom: 8,
+  },
+  smartFoldersContent: {
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  smartFolderButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  smartFolderText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  smartFolderBadge: {
+    minWidth: 20,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+  smartFolderBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
   },
   searchWrapper: {
     position: "relative",
