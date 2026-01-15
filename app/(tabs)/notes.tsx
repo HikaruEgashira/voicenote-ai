@@ -310,6 +310,7 @@ export default function HomeScreen() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "transcribed" | "summarized">("all");
   const [hasHighlightsFilter, setHasHighlightsFilter] = useState(false);
+  const [hasPendingActionsFilter, setHasPendingActionsFilter] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "longest" | "shortest">("newest");
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -362,6 +363,11 @@ export default function HomeScreen() {
       result = result.filter((r) => r.highlights.length > 0);
     }
 
+    // Apply pending actions filter
+    if (hasPendingActionsFilter) {
+      result = result.filter((r) => r.actionItems.some((a) => !a.completed));
+    }
+
     // Apply tag filter
     if (selectedTag) {
       result = result.filter((r) => r.tags.some((t) => t.name === selectedTag));
@@ -384,7 +390,7 @@ export default function HomeScreen() {
     });
 
     return result;
-  }, [state.recordings, debouncedSearchQuery, filter, hasHighlightsFilter, selectedTag, sortOrder]);
+  }, [state.recordings, debouncedSearchQuery, filter, hasHighlightsFilter, hasPendingActionsFilter, selectedTag, sortOrder]);
 
   // コールバックをメモ化してRecordingCardの再レンダリングを防止
   const handleRecordingPress = useCallback((id: string) => {
@@ -551,6 +557,28 @@ export default function HomeScreen() {
                 ]}
               >
                 ハイライト
+              </Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setHasPendingActionsFilter(!hasPendingActionsFilter)}
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: hasPendingActionsFilter ? colors.success + "20" : colors.surface,
+                borderColor: hasPendingActionsFilter ? colors.success : colors.border,
+              },
+            ]}
+          >
+            <View style={styles.filterButtonContent}>
+              <IconSymbol name="checkmark" size={12} color={hasPendingActionsFilter ? colors.success : colors.muted} />
+              <Text
+                style={[
+                  styles.filterText,
+                  { color: hasPendingActionsFilter ? colors.success : colors.muted },
+                ]}
+              >
+                未完了タスク
               </Text>
             </View>
           </TouchableOpacity>
