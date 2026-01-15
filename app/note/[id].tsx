@@ -1335,8 +1335,8 @@ const handleSummarize = async () => {
                                 recording.sentiment.overallSentiment === 'positive'
                                   ? 'face.smiling'
                                   : recording.sentiment.overallSentiment === 'negative'
-                                  ? 'face.smiling'
-                                  : 'face.smiling'
+                                  ? 'face.frowning'
+                                  : 'face.dashed'
                               }
                               size={18}
                               color={
