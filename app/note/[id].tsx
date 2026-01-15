@@ -46,6 +46,8 @@ export default function NoteDetailScreen() {
   const [editedTitle, setEditedTitle] = useState("");
   const [editingActionItemId, setEditingActionItemId] = useState<string | null>(null);
   const [editingActionItemDueDate, setEditingActionItemDueDate] = useState<Date | null>(null);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [editedNotes, setEditedNotes] = useState("");
 
   const recording = getRecording(id || "");
   const player = useAudioPlayer(recording?.audioUri || "");
@@ -420,6 +422,23 @@ const handleSummarize = async () => {
     if (!recording) return;
     const updatedHighlights = recording.highlights.filter(h => h.id !== highlightId);
     await updateRecording(recording.id, { highlights: updatedHighlights });
+  };
+
+  const handleStartEditNotes = () => {
+    if (!recording) return;
+    setEditedNotes(recording.notes || "");
+    setIsEditingNotes(true);
+  };
+
+  const handleSaveNotes = async () => {
+    if (!recording) return;
+    await updateRecording(recording.id, { notes: editedNotes });
+    setIsEditingNotes(false);
+  };
+
+  const handleCancelEditNotes = () => {
+    setIsEditingNotes(false);
+    setEditedNotes("");
   };
 
   const handleExtractKeywords = async () => {
@@ -1299,6 +1318,64 @@ const handleSummarize = async () => {
                       </Text>
                     )}
                   </View>
+
+                  {/* Notes Section */}
+                  <View style={styles.summarySection}>
+                    <View style={styles.tagsSectionHeader}>
+                      <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                        メモ
+                      </Text>
+                      {!isEditingNotes && (
+                        <TouchableOpacity
+                          onPress={handleStartEditNotes}
+                          style={[styles.generateTagsButton, { backgroundColor: colors.surface }]}
+                        >
+                          <IconSymbol name="pencil" size={14} color={colors.primary} />
+                          <Text style={[styles.generateTagsText, { color: colors.primary }]}>
+                            編集
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    {isEditingNotes ? (
+                      <View style={styles.notesEditContainer}>
+                        <TextInput
+                          style={[
+                            styles.notesInput,
+                            { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface }
+                          ]}
+                          value={editedNotes}
+                          onChangeText={setEditedNotes}
+                          placeholder="自由にメモを入力してください..."
+                          placeholderTextColor={colors.muted}
+                          multiline
+                          textAlignVertical="top"
+                        />
+                        <View style={styles.notesEditButtons}>
+                          <TouchableOpacity
+                            onPress={handleSaveNotes}
+                            style={[styles.notesEditButton, { backgroundColor: colors.primary }]}
+                          >
+                            <Text style={styles.notesEditButtonText}>保存</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={handleCancelEditNotes}
+                            style={[styles.notesEditButton, { backgroundColor: colors.muted + '20' }]}
+                          >
+                            <Text style={[styles.notesEditButtonText, { color: colors.foreground }]}>キャンセル</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : recording.notes ? (
+                      <Text style={[styles.notesText, { color: colors.foreground }]}>
+                        {recording.notes}
+                      </Text>
+                    ) : (
+                      <Text style={[styles.emptyTagsText, { color: colors.muted }]}>
+                        メモがありません
+                      </Text>
+                    )}
+                  </View>
                 </>
               ) : (
                 <View style={styles.emptyTab}>
@@ -1897,5 +1974,35 @@ const styles = StyleSheet.create({
   emotionFill: {
     height: "100%",
     borderRadius: 4,
+  },
+  notesEditContainer: {
+    gap: 12,
+  },
+  notesInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    lineHeight: 22,
+    minHeight: 120,
+  },
+  notesEditButtons: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  notesEditButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  notesEditButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  notesText: {
+    fontSize: 14,
+    lineHeight: 22,
   },
 });
