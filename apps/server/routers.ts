@@ -660,6 +660,123 @@ JSON形式で以下のように出力してください:
           throw new Error(`キーワード抽出に失敗しました: ${errorMessage}`);
         }
       }),
+
+    // Export recording to Markdown format
+    exportMarkdown: publicProcedure
+      .input(z.object({
+        recordingId: z.string(),
+        title: z.string(),
+        transcript: z.object({
+          text: z.string(),
+          segments: z.array(z.object({
+            text: z.string(),
+            startTime: z.number(),
+            endTime: z.number(),
+            speaker: z.string().optional(),
+          })),
+        }).optional(),
+        summary: z.object({
+          overview: z.string(),
+          keyPoints: z.array(z.string()),
+          actionItems: z.array(z.string()),
+        }).optional(),
+        keywords: z.array(z.object({
+          text: z.string(),
+          importance: z.string(),
+          frequency: z.number(),
+        })).optional(),
+        tags: z.array(z.object({
+          name: z.string(),
+        })).optional(),
+        actionItems: z.array(z.object({
+          text: z.string(),
+          priority: z.string(),
+          completed: z.boolean(),
+        })).optional(),
+        sentiment: z.object({
+          overallSentiment: z.string(),
+          summary: z.string(),
+        }).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          let markdown = `# ${input.title}\n\n`;
+          markdown += `**Record ID:** ${input.recordingId}\n\n`;
+          markdown += `---\n\n`;
+
+          // Summary section
+          if (input.summary) {
+            markdown += `## 要約\n\n`;
+            markdown += `**概要:** ${input.summary.overview}\n\n`;
+
+            if (input.summary.keyPoints.length > 0) {
+              markdown += `**重要なポイント:**\n`;
+              input.summary.keyPoints.forEach(point => {
+                markdown += `- ${point}\n`;
+              });
+              markdown += `\n`;
+            }
+          }
+
+          // Sentiment section
+          if (input.sentiment) {
+            markdown += `## 感情分析\n\n`;
+            markdown += `**総合感情:** ${input.sentiment.overallSentiment}\n`;
+            markdown += `**詳細:** ${input.sentiment.summary}\n\n`;
+          }
+
+          // Keywords section
+          if (input.keywords && input.keywords.length > 0) {
+            markdown += `## キーワード\n\n`;
+            input.keywords.forEach(kw => {
+              markdown += `- **${kw.text}** (重要度: ${kw.importance}, 出現数: ${kw.frequency})\n`;
+            });
+            markdown += `\n`;
+          }
+
+          // Tags section
+          if (input.tags && input.tags.length > 0) {
+            markdown += `## タグ\n\n`;
+            markdown += input.tags.map(t => `\`${t.name}\``).join(`, `);
+            markdown += `\n\n`;
+          }
+
+          // Action Items section
+          if (input.actionItems && input.actionItems.length > 0) {
+            markdown += `## アクションアイテム\n\n`;
+            input.actionItems.forEach(item => {
+              const checkbox = item.completed ? '✓' : '☐';
+              markdown += `- [${checkbox}] ${item.text} (優先度: ${item.priority})\n`;
+            });
+            markdown += `\n`;
+          }
+
+          // Transcript section
+          if (input.transcript) {
+            markdown += `## 文字起こし\n\n`;
+            if (input.transcript.segments.length > 0) {
+              input.transcript.segments.forEach(seg => {
+                const speaker = seg.speaker ? `**${seg.speaker}:** ` : '';
+                markdown += `${speaker}${seg.text}\n\n`;
+              });
+            } else {
+              markdown += `${input.transcript.text}\n`;
+            }
+          }
+
+          markdown += `\n---\n`;
+          markdown += `*エクスポート日時: ${new Date().toLocaleString('ja-JP')}*\n`;
+
+          return {
+            markdown,
+            filename: `${input.title.replace(/[\/\\:*?"<>|]/g, '_')}.md`,
+          };
+        } catch (error) {
+          console.error("[TRPC] Export markdown error:", error);
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          throw new Error(`Markdownエクスポートに失敗しました: ${errorMessage}`);
+        }
+      }),
   }),
 });
 
