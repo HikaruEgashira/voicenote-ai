@@ -118,8 +118,128 @@
 
 ---
 
+## ビューポート別の問題 (Responsive Issues)
+
+各画面サイズでの固有の問題を特定。テスト用ストーリー: `Viewport/ResponsiveIssues`
+
+### iPhone SE (375x667) - 最小ビューポート
+
+#### V1. フィルターボタンがソートボタンを押し出す
+- **画面**: notes.tsx
+- **問題**: フィルター行（filterRow）で`justifyContent: "space-between"`を使用しているが、filterButtonsが折り返すとsortAndViewButtonsが画面外に押し出される
+- **場所**: `app/(tabs)/notes.tsx:1059-1065`
+- **再現**: 375px幅でフィルターボタン5つ + ソートボタンを表示
+- **推奨修正**: フィルター行を2段構成にするか、フィルターをドロップダウンに変更
+
+#### V2. 波形バーのオーバーフロー
+- **画面**: record.tsx, note/[id].tsx
+- **問題**: 50本のバー × 3px幅 + 隙間 = 約250px必要だが、padding込みで375px画面に収まらずバーが詰まる
+- **場所**: `app/(tabs)/record.tsx:244`
+- **計算**: `(50 * 3) + (49 * gap) + (padding * 2)` で容易にオーバーフロー
+- **推奨修正**: `Math.floor((containerWidth - padding * 2) / 6)` でバー数を動的計算
+
+#### V3. 統計グリッドの4項目配置問題
+- **画面**: settings.tsx
+- **問題**: `width: "50%"`で2列配置だが、375pxでは各セルが187.5pxとなり、fontSize: 28の数値が切れる場合がある
+- **場所**: `app/(tabs)/settings.tsx:1150`
+- **推奨修正**: 最小幅での1列フォールバック、または数値フォントサイズの動的調整
+
+#### V4. スマートフォルダーが画面幅を超える
+- **画面**: notes.tsx
+- **問題**: 4つのスマートフォルダー全てが375pxに収まらないが、スクロール可能であることが視覚的に不明確
+- **場所**: `app/(tabs)/notes.tsx:610-651`
+- **推奨修正**: 右端にフェードグラデーション、または「>」インジケーター追加
+
+### iPad Mini (768x1024) - ブレークポイント境界
+
+#### V5. カードグリッドの余白不均一
+- **画面**: notes.tsx
+- **問題**: `Math.floor(100 / columns) - 2`% の計算で、2カラム時は48%×2=96%、残り4%が余白となるがgap: 12pxとの整合性がない
+- **場所**: `app/(tabs)/notes.tsx:153`
+- **計算**: 768px × 48% = 368.64px per card, gap 12px, total 749.28px (18.72px余剰)
+- **推奨修正**: flexboxのgapとwidth計算を整合させる: `calc((100% - gap) / 2)`相当のロジックに変更
+
+#### V6. サイドバー表示切り替えの急激さ
+- **画面**: _layout.tsx
+- **問題**: 768pxで突然サイドバーが表示され、レイアウトが大きく変化する。アニメーションなし
+- **場所**: `app/(tabs)/_layout.tsx:18`, `packages/hooks/use-responsive.ts:14`
+- **推奨修正**: サイドバー表示にアニメーションを追加、または中間状態（折りたたみ可能サイドバー）を導入
+
+#### V7. デスクトップモードでのタッチターゲット
+- **画面**: 全画面
+- **問題**: 768px以上でisDesktop=trueになるが、iPadはタッチデバイス。デスクトップ向けの小さいUIになる
+- **場所**: `packages/hooks/use-responsive.ts:29`
+- **推奨修正**: `isDesktop`の判定にポインタータイプ（coarse/fine）を追加
+
+### iPad Pro 12.9" (1024x1366) - Regular レイアウト
+
+#### V8. コンテンツの過剰な余白
+- **画面**: record.tsx
+- **問題**: `maxWidth: 900`で中央寄せだが、1024pxではサイドの余白が62pxとなり、画面を有効活用できていない
+- **場所**: `app/(tabs)/record.tsx:412-415`
+- **推奨修正**: maxWidthを画面幅に応じて動的に調整、またはサイドパネルを追加
+
+#### V9. ノートリストの3カラム移行点
+- **画面**: notes.tsx
+- **問題**: 1024pxでは2カラムだが、スクロールが長くなる。3カラムへの移行点（1200px）が高すぎる
+- **場所**: `packages/hooks/use-responsive.ts:17`
+- **推奨修正**: 1024px以上で3カラムに変更、または画面高さも考慮した判定
+
+### Desktop Wide (1920x1080) - 最大ビューポート
+
+#### V10. 極端な横余白
+- **画面**: notes.tsx
+- **問題**: `maxWidth: 1200`で3カラム表示だが、1920pxでは両サイドに360pxの余白が発生
+- **場所**: `app/(tabs)/notes.tsx:1117-1120`
+- **推奨修正**: 4カラム以上への対応、またはmaxWidthの緩和（1440pxなど）
+
+#### V11. 録音画面の大きすぎる録音ボタン
+- **画面**: record.tsx
+- **問題**: 96x96pxの録音ボタンは小さい画面では適切だが、1920px画面では相対的に小さく見える
+- **場所**: `app/(tabs)/record.tsx:519-530`
+- **推奨修正**: 画面サイズに応じてボタンサイズをスケール（最大128px）
+
+#### V12. 波形表示領域の無駄
+- **画面**: record.tsx, note/[id].tsx
+- **問題**: 波形の高さが120px固定で、広い画面でも同じ高さ。バー50本が疎になりすぎる
+- **場所**: `app/(tabs)/record.tsx:497-502`
+- **推奨修正**: 画面幅に応じてバー数を増加（最大100本）し、高さも動的調整
+
+### 全ビューポート共通
+
+#### V13. SafeArea対応の不整合
+- **画面**: 全画面
+- **問題**: SafeAreaProviderを使用しているが、一部コンポーネントでハードコードされたpaddingがある
+- **場所**: 複数ファイル
+- **例**: `paddingBottom: 72`（`app/(tabs)/record.tsx:409`）がタブバー高さと一致しない場合がある
+- **推奨修正**: useSafeAreaInsetsを使用して動的に調整
+
+#### V14. 横向き（Landscape）未対応
+- **画面**: 全画面
+- **問題**: iPad横向き（1366x1024）やiPhone横向き（844x390）でのレイアウトが未検証
+- **推奨修正**: 横向き時のレイアウト調整を追加（特に録音画面とノート詳細）
+
+#### V15. フォントサイズのスケーリング
+- **画面**: 全画面
+- **問題**: アクセシビリティ設定で大きいフォントサイズが設定された場合、固定サイズのコンテナからテキストがはみ出す
+- **推奨修正**: Text要素にmaxFontSizeMultiplierを設定、またはコンテナサイズを動的に調整
+
+---
+
+## ビューポートテスト用ストーリー
+
+以下のストーリーで各ビューポートでの問題を視覚的に確認可能:
+- `Viewport/ResponsiveIssues/FiltersiPhoneSE` - フィルター問題（iPhone SE）
+- `Viewport/ResponsiveIssues/TabsiPhoneSE` - タブバー問題（iPhone SE）
+- `Viewport/ResponsiveIssues/WaveformiPhoneSE` - 波形問題（iPhone SE）
+- `Viewport/ResponsiveIssues/CardsiPadMini` - カードグリッド問題（iPad Mini）
+- `Viewport/ResponsiveIssues/CardsDesktopWide` - 余白問題（Desktop）
+
+---
+
 ## 実装メモ
 
 - 各問題にはStorybookストーリーを作成して視覚的に確認可能
 - タップ領域の問題は、Storybookで各状態をテストすることで確認可能
 - レスポンシブ問題は、異なる画面サイズでStorybookを確認することで検証可能
+- ビューポートテストには `viewport-test.stories.tsx` を使用
