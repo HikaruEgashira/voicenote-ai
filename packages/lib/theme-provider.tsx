@@ -15,9 +15,10 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const systemScheme = useSystemColorScheme() ?? "light";
-  const [colorScheme, setColorSchemeState] = useState<ColorScheme>(systemScheme);
+  // Use fixed initial value to avoid hydration mismatch (SSR vs client)
+  const [colorScheme, setColorSchemeState] = useState<ColorScheme>("light");
   const [isLoaded, setIsLoaded] = useState(false);
+  const systemScheme = useSystemColorScheme();
 
   const applyScheme = useCallback((scheme: ColorScheme) => {
     nativewindColorScheme.set(scheme);
@@ -33,7 +34,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Load saved theme preference on mount
+  // Load saved theme preference on mount, fallback to system scheme
   useEffect(() => {
     const loadTheme = async () => {
       try {
@@ -41,6 +42,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         if (saved === "dark" || saved === "light") {
           setColorSchemeState(saved);
           applyScheme(saved);
+        } else if (systemScheme) {
+          // No saved preference, use system scheme
+          setColorSchemeState(systemScheme);
+          applyScheme(systemScheme);
         }
       } catch (error) {
         console.error('[ThemeProvider] Failed to load theme:', error);
@@ -49,7 +54,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }
     };
     loadTheme();
-  }, [applyScheme]);
+  }, [applyScheme, systemScheme]);
 
   const setColorScheme = useCallback(async (scheme: ColorScheme) => {
     setColorSchemeState(scheme);
