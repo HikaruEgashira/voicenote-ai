@@ -75,3 +75,6 @@ credentials.json
 credentials/
 android/
 
+# Storybook
+.rnstorybook/storybook.requires.ts
+
