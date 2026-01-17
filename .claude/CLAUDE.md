@@ -30,6 +30,23 @@ packages/          # 共有ライブラリ
 - ElevenLabs STT, Gemini AI
 
 # Publish Guide
-- eas cloudは明示されない限り使ってはいけません
-- 基本はローカルでビルドしgh releaseする
-- 前releaseを参考にダウンロードQR画像を生成しREADMEを最新のダウンロードQRに置き換えてください
+
+`/release` スキルを使用してリリースを実行します。
+
+## 概要
+- EAS Cloudは明示されない限り使用しない
+- ローカルでAPKビルドし `gh release` で公開
+- ダウンロードQR画像を生成しREADMEを更新
+
+## Android SDK
+```bash
+# Homebrew SDK パス
+sdk.dir=/opt/homebrew/share/android-commandlinetools
+```
+
+## ビルドコマンド
+```bash
+npx expo prebuild --platform android --clean
+cd android && ./gradlew assembleRelease
+# 出力: android/app/build/outputs/apk/release/app-release.apk
+```
