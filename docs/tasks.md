@@ -44,15 +44,19 @@ backlog.mdから精査した、実際に対応が必要な問題のみを抽出�
 - **場所**: `app/note/[id].tsx:1307-1350`
 - **修正内容**: `@react-native-community/datetimepicker`を導入し、TextInputをDateTimePickerに置換
 
+### ~~V5. カードグリッドの余白不均一~~ ✅
+- **場所**: `app/(tabs)/notes.tsx:1123-1127`, `153-166`
+- **修正内容**: columnWrapperに`gap: 12`追加、カード幅を`flex: 1`に変更
+
+### ~~V8. コンテンツの過剰な余白~~ ✅
+- **場所**: `app/(tabs)/notes.tsx:1118-1123`
+- **修正内容**: `maxWidth: 1400`, `paddingHorizontal: 40`に調整
+
 ---
 
-## ビューポート別対応（将来検討）
+## 対応不要（調査済み）
 
-以下は現時点では許容範囲だが、将来的に改善を検討:
-
-- **V5. カードグリッドの余白不均一** (768px) - gap計算の整合性
-- **V8. コンテンツの過剰な余白** (1024px以上) - maxWidth調整
-- **V13. SafeArea対応の不整合** - ハードコードされたpaddingの動的化
+- **V13. SafeArea対応の不整合** - ScreenContainerで適切に処理済み、ハードコードなし
 
 ---
 
