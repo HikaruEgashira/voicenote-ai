@@ -3,8 +3,7 @@
  * Web では Blob API と Data URI を使用
  */
 
-import type { PlatformFileSystem } from './index';
-import { EncodingType } from './index';
+import { EncodingType, type PlatformFileSystem } from './types';
 
 // Web版のファイルストレージ（メモリ内）
 const fileStorage = new Map<string, string>();

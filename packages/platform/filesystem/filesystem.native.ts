@@ -4,8 +4,7 @@
  */
 
 import * as ExpoFileSystem from 'expo-file-system/legacy';
-import type { PlatformFileSystem } from './index';
-import { EncodingType } from './index';
+import { EncodingType, type PlatformFileSystem } from './types';
 
 export const FileSystem: PlatformFileSystem = {
   get documentDirectory(): string | null {

@@ -16,7 +16,9 @@
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "qr": "node scripts/generate_qr.mjs"
+    "qr": "node scripts/generate_qr.mjs",
+    "storybook": "cross-env EXPO_PUBLIC_STORYBOOK_ENABLED=true expo start --web",
+    "storybook:ios": "cross-env EXPO_PUBLIC_STORYBOOK_ENABLED=true expo run:ios"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -77,6 +79,9 @@
     "zod": "^4.2.1"
   },
   "devDependencies": {
+    "@storybook/addon-ondevice-actions": "8",
+    "@storybook/addon-ondevice-controls": "8",
+    "@storybook/react-native": "8",
     "@types/express": "^4.17.25",
     "@types/node": "^22.19.3",
     "@types/qrcode": "^1.5.6",

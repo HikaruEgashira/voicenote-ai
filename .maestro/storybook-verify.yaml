@@ -1,0 +1,30 @@
+appId: host.exp.Exponent
+name: Storybook Verification
+---
+# Storybook起動確認テスト
+- launchApp:
+    clearState: true
+    arguments:
+      expo-url: "http://localhost:8081"
+
+- extendedWaitUntil:
+    visible: "Settings/Stats"
+    timeout: 30000
+
+# ストーリーリストの確認
+- assertVisible: "EmptyStats"
+- assertVisible: "BasicStatsOnly"
+- assertVisible: "WithSentiment"
+- assertVisible: "WithActionItems"
+- assertVisible: "WithTopTags"
+- assertVisible: "FullStats"
+
+# ストーリーをタップして表示確認
+- tapOn: "FullStats"
+- extendedWaitUntil:
+    visible: "統計"
+    timeout: 10000
+- assertVisible: "録音数"
+- assertVisible: "合計時間(分)"
+- assertVisible: "文字起こし済"
+- assertVisible: "要約済"
