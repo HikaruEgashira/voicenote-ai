@@ -23,7 +23,6 @@ interface RecordingSessionState {
   isPaused: boolean;
   duration: number;
   highlights: Highlight[];
-  hasPermission: boolean | null;
   realtimeEnabled: boolean;
   translationEnabled: boolean;
   translationTargetLanguage: string;
@@ -67,7 +66,6 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
   const [isPaused, setIsPaused] = useState(false);
   const [duration, setDuration] = useState(0);
   const [highlights, setHighlights] = useState<Highlight[]>([]);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [currentRecordingId, setCurrentRecordingId] = useState<string | null>(null);
   const [justCompleted, setJustCompleted] = useState(false);
   const [metering, setMetering] = useState(-160);
@@ -110,14 +108,6 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
 
   // Auto-save draft hook
   const { startAutoSave, stopAutoSave, loadDraft, clearDraft } = useRecordingDraft();
-
-  // Request microphone permission
-  useEffect(() => {
-    (async () => {
-      const status = await Permissions.requestMicrophonePermission();
-      setHasPermission(status === 'granted');
-    })();
-  }, []);
 
   // Audio metering effect
   useEffect(() => {
@@ -233,6 +223,14 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
       return;
     }
     isStartingRef.current = true;
+
+    // 権限リクエスト
+    const status = await Permissions.requestMicrophonePermission();
+    if (status !== 'granted') {
+      isStartingRef.current = false;
+      Alert.alert('マイク権限が必要です', '設定からマイクへのアクセスを許可してください');
+      return;
+    }
 
     await Haptics.impact('medium');
 
@@ -534,7 +532,6 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
     isPaused,
     duration,
     highlights,
-    hasPermission,
     realtimeEnabled,
     translationEnabled,
     translationTargetLanguage,
@@ -575,7 +572,6 @@ const defaultState: RecordingSessionState = {
   isPaused: false,
   duration: 0,
   highlights: [],
-  hasPermission: null,
   realtimeEnabled: false,
   translationEnabled: false,
   translationTargetLanguage: 'ja',

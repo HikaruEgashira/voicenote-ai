@@ -71,7 +71,6 @@ export default function RecordScreen() {
     isRecording,
     isPaused,
     duration,
-    hasPermission,
     realtimeEnabled,
     translationEnabled,
     meteringHistory,
@@ -104,32 +103,6 @@ export default function RecordScreen() {
       scrollViewRef.current.scrollToEnd({ animated: true });
     }
   }, [realtimeState.segments]);
-
-  if (hasPermission === null) {
-    return (
-      <ScreenContainer>
-        <View style={styles.centered}>
-          <Text style={{ color: colors.foreground }}>マイクの許可を確認中...</Text>
-        </View>
-      </ScreenContainer>
-    );
-  }
-
-  if (hasPermission === false) {
-    return (
-      <ScreenContainer>
-        <View style={styles.centered}>
-          <IconSymbol name="mic.fill" size={64} color={colors.error} />
-          <Text style={[styles.permissionTitle, { color: colors.foreground }]}>
-            マイクへのアクセスが必要です
-          </Text>
-          <Text style={[styles.permissionText, { color: colors.muted }]}>
-            設定からマイクへのアクセスを許可してください
-          </Text>
-        </View>
-      </ScreenContainer>
-    );
-  }
 
   const formatDraftTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -418,21 +391,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     width: "100%",
     paddingHorizontal: 40,
-  },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 16,
-  },
-  permissionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginTop: 16,
-  },
-  permissionText: {
-    fontSize: 14,
-    textAlign: "center",
   },
   header: {
     flexDirection: "row",
