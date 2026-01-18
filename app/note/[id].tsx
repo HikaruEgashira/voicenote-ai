@@ -408,19 +408,22 @@ const handleSummarize = async () => {
         });
       }
 
-      // Auto-generate AI analysis after summarization
+      // Auto-generate AI analysis after summarization (run in parallel)
+      const analysisPromises: Promise<void>[] = [];
       if (recording.tags.length === 0) {
-        handleGenerateTags();
+        analysisPromises.push(handleGenerateTags());
       }
       if (recording.actionItems.length === 0) {
-        handleExtractActionItems();
+        analysisPromises.push(handleExtractActionItems());
       }
       if (recording.keywords.length === 0) {
-        handleExtractKeywords();
+        analysisPromises.push(handleExtractKeywords());
       }
       if (!recording.sentiment) {
-        handleAnalyzeSentiment();
+        analysisPromises.push(handleAnalyzeSentiment());
       }
+      // Wait for all analysis tasks to complete
+      await Promise.allSettled(analysisPromises);
     } catch (error) {
       console.error("Summary error:", error);
       updateRecording(recording.id, { status: "transcribed" });

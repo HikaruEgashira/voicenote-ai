@@ -1,5 +1,6 @@
 "use client";
 
+import { Link } from "expo-router";
 import { motion } from "framer-motion";
 import { Mic, Zap, Shield, Github } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -328,11 +329,11 @@ function VoiceMemoLanding() {
                 <a href="https://github.com/HikaruEgashira/pleno-live/releases">
                   <Button size="lg">Download App</Button>
                 </a>
-                <a href="/record">
+                <Link href="/record">
                   <Button size="lg" variant="outline">
                     ブラウザで使う
                   </Button>
-                </a>
+                </Link>
               </motion.div>
 
               <motion.div
@@ -444,11 +445,11 @@ function VoiceMemoLanding() {
               <a href="https://github.com/HikaruEgashira/pleno-live/releases">
                 <Button size="lg">Download Now</Button>
               </a>
-              <a href="https://github.com/HikaruEgashira/pleno-live">
+              <Link href="/record">
                 <Button size="lg" variant="outline">
-                  Star on GitHub
+                  ブラウザで使う
                 </Button>
-              </a>
+              </Link>
             </div>
           </motion.div>
         </section>
