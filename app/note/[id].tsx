@@ -18,6 +18,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { ScreenContainer } from "@/packages/components/screen-container";
 import { Haptics, FileSystem } from "@/packages/platform";
 import { IconSymbol } from "@/packages/components/ui/icon-symbol";
+import { MarkdownText } from "@/packages/components/ui/markdown-text";
 import { useRecordings } from "@/packages/lib/recordings-context";
 import { useColors } from "@/packages/hooks/use-colors";
 import { useResponsive } from "@/packages/hooks/use-responsive";
@@ -1123,9 +1124,9 @@ const handleSummarize = async () => {
                 <>
                   <View style={styles.summarySection}>
                     <Text style={[styles.sectionTitle, { color: colors.foreground }]}>概要</Text>
-                    <Text style={[styles.summaryText, { color: colors.foreground }]}>
+                    <MarkdownText fontSize={15} lineHeight={24}>
                       {recording.summary.overview}
-                    </Text>
+                    </MarkdownText>
                   </View>
 
                   <View style={styles.summarySection}>
@@ -1135,9 +1136,9 @@ const handleSummarize = async () => {
                     {recording.summary.keyPoints.map((point, i) => (
                       <View key={i} style={styles.bulletItem}>
                         <View style={[styles.bullet, { backgroundColor: colors.primary }]} />
-                        <Text style={[styles.bulletText, { color: colors.foreground }]}>
+                        <MarkdownText fontSize={15} lineHeight={24} style={{ flex: 1 }}>
                           {point}
-                        </Text>
+                        </MarkdownText>
                       </View>
                     ))}
                   </View>
@@ -1149,9 +1150,9 @@ const handleSummarize = async () => {
                     {recording.summary.actionItems.map((item, i) => (
                       <View key={i} style={styles.bulletItem}>
                         <View style={[styles.bullet, { backgroundColor: colors.success }]} />
-                        <Text style={[styles.bulletText, { color: colors.foreground }]}>
+                        <MarkdownText fontSize={15} lineHeight={24} style={{ flex: 1 }}>
                           {item}
-                        </Text>
+                        </MarkdownText>
                       </View>
                     ))}
                   </View>
