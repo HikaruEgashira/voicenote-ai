@@ -33,6 +33,8 @@ export const OPENAI_LIVE_TRANSCRIBE_MODEL = "gpt-live-transcribe";
 export const OPENAI_INPUT_SAMPLE_RATE = 24000;
 
 const SESSION_START_TIMEOUT_MS = 10000;
+/** 切断前に最後の確定結果を待つ上限 */
+const FINALIZE_TIMEOUT_MS = 2000;
 
 const DELTA_EVENT = "conversation.item.input_audio_transcription.delta";
 const COMPLETED_EVENT = "conversation.item.input_audio_transcription.completed";
@@ -124,6 +126,12 @@ export class OpenAIRealtimeTranscriptionClient implements RealtimeClient {
   private partialTexts: Map<string, string> = new Map();
   private resampler: Pcm16Resampler | null = null;
   private resamplerInputRate = 0;
+  /** 直近のコミット以降に音声を送ったか（未確定バッファの有無） */
+  private hasPendingAudio = false;
+  /** finalize() 中の確定待ちを解除するためのコールバック */
+  private finalizeResolve: (() => void) | null = null;
+  /** finalize() 中はエラー通知を抑止する（空バッファのcommit等） */
+  private isFinalizing = false;
 
   /**
    * WebSocket接続を確立
@@ -145,6 +153,8 @@ export class OpenAIRealtimeTranscriptionClient implements RealtimeClient {
     this.isConnecting = true;
     this.partialTexts.clear();
     this.resampler?.reset();
+    this.hasPendingAudio = false;
+    this.isFinalizing = false;
 
     try {
       const url = `${OPENAI_REALTIME_ENDPOINT}?intent=transcription`;
@@ -275,6 +285,43 @@ export class OpenAIRealtimeTranscriptionClient implements RealtimeClient {
     this.ws.send(
       JSON.stringify({ type: "input_audio_buffer.append", audio }),
     );
+    this.hasPendingAudio = true;
+  }
+
+  /**
+   * 未確定の音声バッファを確定させ、確定結果が届くまで短時間待つ
+   *
+   * server_vad の無音待ち中に録音を止めると最後の発話が失われるため、
+   * 明示的に commit してから切断する。
+   */
+  async finalize(): Promise<void> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    if (!this.hasPendingAudio) return;
+
+    this.isFinalizing = true;
+    this.hasPendingAudio = false;
+
+    try {
+      this.ws.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+    } catch {
+      this.isFinalizing = false;
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        this.finalizeResolve = null;
+        resolve();
+      };
+      const timeout = setTimeout(finish, FINALIZE_TIMEOUT_MS);
+      this.finalizeResolve = finish;
+    });
+
+    this.isFinalizing = false;
   }
 
   /**
@@ -287,6 +334,9 @@ export class OpenAIRealtimeTranscriptionClient implements RealtimeClient {
     this.partialTexts.clear();
     this.resampler = null;
     this.resamplerInputRate = 0;
+    this.hasPendingAudio = false;
+    this.isFinalizing = false;
+    this.finalizeResolve?.();
     if (ws) {
       console.log("[OpenAIRealtimeClient] Disconnecting WebSocket");
       ws.close();
@@ -318,7 +368,7 @@ export class OpenAIRealtimeTranscriptionClient implements RealtimeClient {
         const accumulated =
           (this.partialTexts.get(data.item_id) ?? "") + data.delta;
         this.partialTexts.set(data.item_id, accumulated);
-        this.emit("partial", { text: accumulated });
+        this.emit("partial", { text: accumulated, itemId: data.item_id });
         break;
       }
 
@@ -326,8 +376,10 @@ export class OpenAIRealtimeTranscriptionClient implements RealtimeClient {
         const data = message as OpenAITranscriptionCompletedEvent;
         this.partialTexts.delete(data.item_id);
         const text = typeof data.transcript === "string" ? data.transcript : "";
+        // finalize() の待ちは、確定テキストが空でも解除する
+        this.finalizeResolve?.();
         if (!text) break;
-        this.emit("committed", { text });
+        this.emit("committed", { text, itemId: data.item_id });
         break;
       }
 
@@ -345,6 +397,11 @@ export class OpenAIRealtimeTranscriptionClient implements RealtimeClient {
       }
 
       case "error": {
+        if (this.isFinalizing) {
+          // 空バッファのcommitなど、切断直前のエラーはユーザーに出さない
+          this.finalizeResolve?.();
+          break;
+        }
         console.error("[OpenAIRealtimeClient] Server error");
         this.emit("error", {
           code: getErrorCode(message),
@@ -359,6 +416,9 @@ export class OpenAIRealtimeTranscriptionClient implements RealtimeClient {
       case "conversation.item.created":
       case "conversation.item.added":
       case "input_audio_buffer.committed":
+        this.hasPendingAudio = false;
+        break;
+
       case "input_audio_buffer.cleared":
       case "input_audio_buffer.speech_started":
       case "input_audio_buffer.speech_stopped":

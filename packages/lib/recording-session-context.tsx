@@ -73,6 +73,11 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
   const [metering, setMetering] = useState(-160);
 
   const isStartingRef = useRef(false);
+  // ExpoPlayAudioStreamが実際に録音を担当しているか。
+  // リアルタイムセッションの開始に失敗した場合はexpo-audioへフォールバックするため、
+  // 「リアルタイム有効かどうか」ではなく実際の担当者をここで追跡する。
+  const [streamRecordingActive, setStreamRecordingActive] = useState(false);
+  const streamRecordingActiveRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const systemAudioStreamRef = useRef<SystemAudioStream | null>(null);
@@ -133,15 +138,16 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
       return;
     }
 
-    if (realtimeEnabled) {
-      // リアルタイム文字起こし有効時: ExpoPlayAudioStreamのsoundLevelを使用
+    if (streamRecordingActive || (realtimeEnabled && Platform.OS === 'web')) {
+      // リアルタイム文字起こし有効時: 音声ストリームのsoundLevelを使用
       const db = realtimeSoundLevel > 0 ? 20 * Math.log10(realtimeSoundLevel) : -60;
       setMetering(Math.max(-60, Math.min(0, db)));
     } else if (!isPaused && recorderState.metering != null) {
-      // 通常録音: expo-audioの組み込みメータリング (同一録音セッションから取得)
+      // 通常録音 / リアルタイム開始失敗時のフォールバック:
+      // expo-audioの組み込みメータリング (同一録音セッションから取得)
       setMetering(recorderState.metering);
     }
-  }, [isRecording, isPaused, realtimeEnabled, realtimeSoundLevel, recorderState.metering]);
+  }, [isRecording, isPaused, realtimeEnabled, streamRecordingActive, realtimeSoundLevel, recorderState.metering]);
 
 
   // 翻訳先言語が変わったらキャッシュをクリア
@@ -248,6 +254,8 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
       // Native + realtime: ExpoPlayAudioStreamが録音・ストリーミング・メータリングを一括担当
       // それ以外: expo-audioで録音ファイルを保存（マイク排他アクセス競合を回避）
       const useStreamRecording = realtimeEnabled && Platform.OS !== 'web';
+      streamRecordingActiveRef.current = useStreamRecording;
+      setStreamRecordingActive(useStreamRecording);
 
       if (!useStreamRecording) {
         await audioRecorder.prepareToRecordAsync();
@@ -301,6 +309,31 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
             systemAudioStreamRef.current.stop();
             systemAudioStreamRef.current = null;
           }
+
+          // Native: ExpoPlayAudioStreamはまだ録音していないため、
+          // ここでexpo-audioへフォールバックしないと録音そのものが失われる
+          // （トークン発行失敗やAPIキー未設定など）。
+          if (streamRecordingActiveRef.current) {
+            streamRecordingActiveRef.current = false;
+            setStreamRecordingActive(false);
+            try {
+              await audioRecorder.prepareToRecordAsync();
+              audioRecorder.record();
+              Alert.alert(
+                'リアルタイム文字起こしを開始できません',
+                '録音は続行します。文字起こしは録音停止後に実行してください。'
+              );
+            } catch {
+              // フォールバックも失敗: 音声を保存できないため録音を中止する
+              stopAutoSave();
+              setIsRecording(false);
+              setIsPaused(false);
+              setCurrentRecordingId(null);
+              isStartingRef.current = false;
+              Alert.alert('エラー', '録音を開始できませんでした');
+              return;
+            }
+          }
         }
       }
       isStartingRef.current = false;
@@ -317,7 +350,8 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
 
   const pauseResume = useCallback(async () => {
     // ExpoPlayAudioStreamはpause/resumeをサポートしない
-    if (realtimeEnabled && Platform.OS !== 'web') return;
+    // （フォールバックでexpo-audioを使っている場合は操作できる）
+    if (streamRecordingActiveRef.current) return;
 
     await Haptics.impact('light');
 
@@ -346,7 +380,8 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
     }
 
     try {
-      const useStreamRecording = realtimeEnabled && Platform.OS !== 'web';
+      // 設定ではなく実際にストリーム録音が動いていたかで判断する
+      const useStreamRecording = streamRecordingActiveRef.current;
       let audioFileUri: string | null | undefined;
 
       if (realtimeEnabled && currentRecordingId) {
@@ -474,6 +509,8 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
       setCurrentRecordingId(null);
       setJustCompleted(true);
       isStartingRef.current = false;
+      streamRecordingActiveRef.current = false;
+      setStreamRecordingActive(false);
 
       // ドラフトをクリア（正常終了）
       await clearDraft();
@@ -506,7 +543,7 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
       }
 
       // ExpoPlayAudioStreamのみ使用時はaudioRecorderは起動していない
-      if (!realtimeEnabled || Platform.OS === 'web') {
+      if (!streamRecordingActiveRef.current) {
         await audioRecorder.stop();
       }
     } finally {
@@ -518,6 +555,8 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
       setCurrentRecordingId(null);
       setJustCompleted(true);
       isStartingRef.current = false;
+      streamRecordingActiveRef.current = false;
+      setStreamRecordingActive(false);
       await clearDraft();
     }
   }, [audioRecorder, realtimeEnabled, currentRecordingId, stopRealtimeSession, stopAutoSave, clearDraft]);

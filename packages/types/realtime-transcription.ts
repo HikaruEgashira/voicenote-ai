@@ -64,6 +64,12 @@ export interface TranscriptSegment {
   /** 信頼度スコア（0-1） */
   confidence?: number;
   /**
+   * プロバイダ側のターン識別子（OpenAIの item_id）。
+   * VADのターンが並行して確定しうるプロバイダで、
+   * 遅れて届いた確定結果を正しいセグメントへ反映するために使う。
+   */
+  providerItemId?: string;
+  /**
    * 表示用に結合された場合の構成元セグメントIDリスト（mergeSegmentsが付与）。
    * 結合表示でも各構成セグメントの翻訳を引き当てられるようにするための一時フィールド。
    * 永続化はされない。

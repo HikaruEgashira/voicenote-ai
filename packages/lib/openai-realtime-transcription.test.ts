@@ -324,3 +324,113 @@ describe("OpenAIRealtimeTranscriptionClient", () => {
     expect(client.isConnected).toBe(false);
   });
 });
+
+describe("OpenAIRealtimeTranscriptionClient finalize", () => {
+  it("commits the pending buffer and waits for the final transcript", async () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const client = new OpenAIRealtimeTranscriptionClient();
+    const committed: string[] = [];
+    client.on("committed", (data: { text: string }) => committed.push(data.text));
+
+    const socket = await connectClient(client);
+    client.sendAudioChunk(pcm16ToBase64(new Int16Array([1, 2, 3, 4])));
+    socket.sent.length = 0;
+
+    const finalizing = client.finalize();
+    // VADの無音待ちに入る前でも明示的にコミットする
+    expect(socket.parsedSent()[0].type).toBe("input_audio_buffer.commit");
+
+    socket.receive({
+      type: "conversation.item.input_audio_transcription.completed",
+      item_id: "item_last",
+      transcript: "最後の発話",
+    });
+    await finalizing;
+
+    expect(committed).toEqual(["最後の発話"]);
+  });
+
+  it("does not commit when no audio is pending", async () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const client = new OpenAIRealtimeTranscriptionClient();
+
+    const socket = await connectClient(client);
+    socket.sent.length = 0;
+    await client.finalize();
+
+    expect(socket.sent).toEqual([]);
+  });
+
+  it("treats an already-committed buffer as nothing to flush", async () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const client = new OpenAIRealtimeTranscriptionClient();
+
+    const socket = await connectClient(client);
+    client.sendAudioChunk(pcm16ToBase64(new Int16Array([1, 2, 3, 4])));
+    // VADが自動コミットした
+    socket.receive({ type: "input_audio_buffer.committed" });
+    socket.sent.length = 0;
+
+    await client.finalize();
+
+    expect(socket.sent).toEqual([]);
+  });
+
+  it("suppresses errors raised while flushing", async () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const client = new OpenAIRealtimeTranscriptionClient();
+    const errors: unknown[] = [];
+    client.on("error", (error) => errors.push(error));
+
+    const socket = await connectClient(client);
+    client.sendAudioChunk(pcm16ToBase64(new Int16Array([1, 2, 3, 4])));
+
+    const finalizing = client.finalize();
+    // 空バッファのcommitなど、切断直前のエラーはユーザーに見せない
+    socket.receive({
+      type: "error",
+      error: { code: "input_audio_buffer_commit_empty", message: "buffer empty" },
+    });
+    await finalizing;
+
+    expect(errors).toEqual([]);
+  });
+
+  it("does nothing when the socket is already closed", async () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const client = new OpenAIRealtimeTranscriptionClient();
+
+    await expect(client.finalize()).resolves.toBeUndefined();
+  });
+
+  it("propagates the item id on partial and committed events", async () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const client = new OpenAIRealtimeTranscriptionClient();
+    const events: { text: string; itemId?: string }[] = [];
+    client.on("partial", (data) => events.push(data));
+    client.on("committed", (data) => events.push(data));
+
+    const socket = await connectClient(client);
+    socket.receive({
+      type: "conversation.item.input_audio_transcription.delta",
+      item_id: "item_7",
+      delta: "途中",
+    });
+    socket.receive({
+      type: "conversation.item.input_audio_transcription.completed",
+      item_id: "item_7",
+      transcript: "確定",
+    });
+
+    expect(events).toEqual([
+      { text: "途中", itemId: "item_7" },
+      { text: "確定", itemId: "item_7" },
+    ]);
+  });
+});

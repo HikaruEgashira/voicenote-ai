@@ -168,7 +168,7 @@ export function useRealtimeTranscription() {
         }));
       });
 
-      client.on("partial", (data: { text: string }) => {
+      client.on("partial", (data: { text: string; itemId?: string }) => {
         const timestamp = (Date.now() - recordingStartTimeRef.current) / 1000;
 
         setState((prev) => {
@@ -177,6 +177,7 @@ export function useRealtimeTranscription() {
             data.text,
             timestamp,
             generateSegmentId,
+            data.itemId,
           );
           if (callbacksRef.current?.onPartial) {
             setTimeout(() => callbacksRef.current?.onPartial?.(segment), 0);
@@ -185,7 +186,7 @@ export function useRealtimeTranscription() {
         });
       });
 
-      client.on("committed", (data: { text: string }) => {
+      client.on("committed", (data: { text: string; itemId?: string }) => {
         const timestamp = (Date.now() - recordingStartTimeRef.current) / 1000;
 
         setState((prev) => {
@@ -195,6 +196,7 @@ export function useRealtimeTranscription() {
             timestamp,
             undefined,
             generateSegmentId,
+            data.itemId,
           );
           if (callbacksRef.current?.onCommitted) {
             setTimeout(() => callbacksRef.current?.onCommitted?.(segment), 0);
@@ -299,6 +301,13 @@ export function useRealtimeTranscription() {
     const streamResult = await stopAudioStreaming();
 
     if (clientRef.current) {
+      // VADの無音待ち前に停止した場合、最後の発話が未確定のまま残る。
+      // 切断前にフラッシュして確定結果を取りこぼさない。
+      try {
+        await clientRef.current.finalize?.();
+      } catch {
+        // フラッシュ失敗はセッション停止を妨げない
+      }
       clientRef.current.disconnect();
       clientRef.current = null;
     }

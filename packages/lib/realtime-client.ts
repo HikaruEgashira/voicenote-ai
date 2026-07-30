@@ -42,6 +42,14 @@ export interface RealtimeClient {
    *   プロバイダが別のレートを要求する場合は実装側で変換する。
    */
   sendAudioChunk(audioBase64: string, sampleRate?: number): void;
+  /**
+   * 切断前に未確定の音声をフラッシュする（任意実装）。
+   *
+   * VADの無音待ちに入る前に録音を止めると、最後の発話が確定されないまま
+   * 接続が閉じてしまう。実装側でバッファを確定させ、確定結果が届くまで
+   * 短時間だけ待つ。実装がない場合は何もしない。
+   */
+  finalize?(): Promise<void>;
   /** 接続を切断 */
   disconnect(): void;
   /** イベントハンドラを登録 */

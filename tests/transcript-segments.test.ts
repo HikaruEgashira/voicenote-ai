@@ -167,3 +167,83 @@ describe("mergeSegments", () => {
     expect(merged[1].sourceIds).toEqual(["b"]);
   });
 });
+
+describe("providerItemId によるターン識別 (OpenAI GPT Live Transcribe)", () => {
+  it("同じ item の partial は同じセグメントを更新する", () => {
+    const idGen = makeIdGen();
+    const first = applyPartial([], "こん", 1, idGen, "item_1");
+    const second = applyPartial(first.segments, "こんにちは", 2, idGen, "item_1");
+
+    expect(second.segments).toHaveLength(1);
+    expect(second.segments[0].id).toBe(first.segments[0].id);
+    expect(second.segments[0].text).toBe("こんにちは");
+  });
+
+  it("別 item の partial は新しいセグメントを追加する", () => {
+    const idGen = makeIdGen();
+    const first = applyPartial([], "turn one", 1, idGen, "item_1");
+    const second = applyPartial(first.segments, "turn two", 2, idGen, "item_2");
+
+    expect(second.segments).toHaveLength(2);
+    expect(second.segments[0].providerItemId).toBe("item_1");
+    expect(second.segments[1].providerItemId).toBe("item_2");
+  });
+
+  it("次ターンのpartialが先に来ても、遅れて届いた確定は正しいターンへ反映される", () => {
+    const idGen = makeIdGen();
+    // item_1 の文字起こしが終わる前に item_2 の発話が始まるケース
+    let segments = applyPartial([], "first turn", 1, idGen, "item_1").segments;
+    segments = applyPartial(segments, "second turn", 2, idGen, "item_2").segments;
+
+    // item_1 の確定が後から届く
+    const committed = applyCommitted(
+      segments,
+      "first turn final",
+      3,
+      undefined,
+      idGen,
+      "item_1",
+    );
+
+    expect(committed.segments).toHaveLength(2);
+    // item_2 の partial を上書きしていない
+    expect(committed.segments[0].text).toBe("first turn final");
+    expect(committed.segments[0].isPartial).toBe(false);
+    expect(committed.segments[1].text).toBe("second turn");
+    expect(committed.segments[1].isPartial).toBe(true);
+  });
+
+  it("確定時もセグメントIDを維持する（翻訳の引き継ぎ）", () => {
+    const idGen = makeIdGen();
+    const partial = applyPartial([], "途中", 1, idGen, "item_9");
+    const committed = applyCommitted(
+      partial.segments,
+      "確定",
+      2,
+      undefined,
+      idGen,
+      "item_9",
+    );
+
+    expect(committed.segment.id).toBe(partial.segment.id);
+  });
+
+  it("partial を経ずに確定が届いた場合は新規追加する", () => {
+    const idGen = makeIdGen();
+    const committed = applyCommitted([], "確定のみ", 1, undefined, idGen, "item_x");
+
+    expect(committed.segments).toHaveLength(1);
+    expect(committed.segments[0].isPartial).toBe(false);
+    expect(committed.segments[0].providerItemId).toBe("item_x");
+  });
+
+  it("providerItemId なし（ElevenLabs）の挙動は変わらない", () => {
+    const idGen = makeIdGen();
+    const partial = applyPartial([], "途中", 1, idGen);
+    const committed = applyCommitted(partial.segments, "確定", 2, undefined, idGen);
+
+    expect(committed.segments).toHaveLength(1);
+    expect(committed.segments[0].id).toBe(partial.segments[0].id);
+    expect(committed.segments[0].providerItemId).toBeUndefined();
+  });
+});
