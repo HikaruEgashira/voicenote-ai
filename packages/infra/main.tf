@@ -41,6 +41,13 @@ variable "elevenlabs_api_key" {
   sensitive = true
 }
 
+variable "openai_api_key" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "OpenAI API key for GPT Live Transcribe realtime transcription"
+}
+
 variable "gcp_project_id" {
   type        = string
   description = "Google Cloud Project ID (Vertex AI)"
@@ -121,6 +128,8 @@ resource "aws_lambda_function" "api" {
     variables = {
       NODE_ENV              = "production"
       ELEVENLABS_API_KEY    = var.elevenlabs_api_key
+      # GPT Live Transcribe (リアルタイム文字起こし)
+      OPENAI_API_KEY        = var.openai_api_key
       JWT_SECRET            = var.jwt_secret
       APP_HMAC_SECRET       = var.app_hmac_secret
       ALLOWED_ORIGINS       = var.allowed_origins

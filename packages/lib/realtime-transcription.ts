@@ -11,6 +11,13 @@ import type {
   CommittedTranscriptMessage,
   CommittedTranscriptWithTimestampsMessage,
 } from "@/packages/types/realtime-transcription";
+import type {
+  RealtimeClient,
+  RealtimeEvent,
+  RealtimeEventHandler,
+} from "./realtime-client";
+
+export type { RealtimeEvent };
 
 const ELEVENLABS_REALTIME_ENDPOINT =
   "wss://api.elevenlabs.io/v1/speech-to-text/realtime";
@@ -34,18 +41,7 @@ const ELEVENLABS_ERROR_MESSAGE_TYPES = new Set([
 /**
  * イベントハンドラの型定義
  */
-type EventHandler = (data: any) => void;
-
-/**
- * WebSocket接続イベント
- */
-export type RealtimeEvent =
-  | "session_started"
-  | "partial"
-  | "committed"
-  | "committedWithTimestamps"
-  | "error"
-  | "close";
+type EventHandler = RealtimeEventHandler;
 
 function getMessageType(message: RealtimeMessage): string {
   return message.message_type || message.type || "unknown";
@@ -71,7 +67,7 @@ function isErrorMessageType(messageType: string): boolean {
 /**
  * Realtime Transcription WebSocketクライアント
  */
-export class RealtimeTranscriptionClient {
+export class RealtimeTranscriptionClient implements RealtimeClient {
   private ws: WebSocket | null = null;
   private eventHandlers: Map<RealtimeEvent, EventHandler> = new Map();
   private isConnecting = false;

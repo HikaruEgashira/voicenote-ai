@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, type ReactNode } from 'react';
 import { Storage } from '@/packages/platform';
 import type { WhisperModelSize } from '@/packages/lib/whisper/whisper-types';
+import type { RealtimeProvider } from '@/packages/types/realtime-transcription';
 
 const SETTINGS_KEY = 'app-settings';
 
@@ -17,6 +18,8 @@ export interface SettingsState {
   transcriptionProvider: TranscriptionProvider;
   realtimeTranscription: {
     enabled: boolean;
+    /** リアルタイム文字起こしのプロバイダ（バッチ文字起こしとは独立） */
+    provider: RealtimeProvider;
     language: string;
     enableSpeakerDiarization: boolean;
   };
@@ -40,6 +43,7 @@ const defaultSettings: SettingsState = {
   transcriptionProvider: 'gemini',
   realtimeTranscription: {
     enabled: false,
+    provider: 'elevenlabs',
     language: 'ja',
     enableSpeakerDiarization: false,
   },

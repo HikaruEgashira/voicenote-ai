@@ -41,10 +41,18 @@ packages/
 
 ### Transcription (文字起こし)
 - `packages/hooks/use-realtime-transcription.ts`
-- `packages/lib/realtime-transcription.ts`
+- `packages/lib/realtime-client.ts` — プロバイダ非依存のクライアント契約 + トークンパス
+- `packages/lib/realtime-transcription-factory.ts` — プロバイダ別実装の切り替え
+- `packages/lib/realtime-transcription.ts` — ElevenLabs Scribe Realtime v2
+- `packages/lib/openai-realtime-transcription.ts` — OpenAI GPT Live Transcribe
+- `packages/lib/pcm-resample.ts` — 16kHz→24kHz変換 (OpenAIは24kHz固定)
 - `packages/types/realtime-transcription.ts` — TranscriptSegment型
-- `apps/server/elevenlabs.ts`, `elevenlabs-realtime.ts`, `gemini.ts`
+- `apps/server/elevenlabs.ts`, `elevenlabs-realtime.ts`, `openai-realtime.ts`, `gemini.ts`
+- `apps/server/realtime-token.ts` — トークン発行のレート制限 (両プロバイダ共通)
 - `packages/lib/settings-context.tsx` — STTプロバイダ設定
+- リアルタイムのプロバイダ設定 (`realtimeTranscription.provider`) は
+  録音後のバッチ文字起こし設定 (`transcriptionProvider`) とは独立
+- サーバー環境変数: `ELEVENLABS_API_KEY`, `OPENAI_API_KEY`
 
 ## Platform Abstraction (`packages/platform/`)
 

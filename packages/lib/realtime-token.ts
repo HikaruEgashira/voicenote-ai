@@ -1,21 +1,30 @@
+import type { RealtimeProvider } from "@/packages/types/realtime-transcription";
+import { REALTIME_TOKEN_PATHS } from "./realtime-client";
+
 type Fetch = typeof fetch;
 
 function normalizeApiBaseUrl(value: string): string {
   return value.replace(/\/+$/, "");
 }
 
-export async function requestRealtimeToken(
+/**
+ * プロバイダに対応するリアルタイム文字起こしトークンを取得する
+ *
+ * - `elevenlabs`: ElevenLabs の single-use token
+ * - `openai`: OpenAI Realtime の ephemeral client secret
+ */
+export async function requestRealtimeTokenFor(
   apiBaseUrl: string,
+  provider: RealtimeProvider = "elevenlabs",
   fetchImpl: Fetch = fetch,
 ): Promise<string> {
-  const response = await fetchImpl(
-    `${normalizeApiBaseUrl(apiBaseUrl)}/api/even-g2/realtime-token`,
-    {
-      method: "POST",
-      credentials: "omit",
-      headers: { Accept: "application/json" },
-    },
-  );
+  const path = REALTIME_TOKEN_PATHS[provider] ?? REALTIME_TOKEN_PATHS.elevenlabs;
+
+  const response = await fetchImpl(`${normalizeApiBaseUrl(apiBaseUrl)}${path}`, {
+    method: "POST",
+    credentials: "omit",
+    headers: { Accept: "application/json" },
+  });
 
   if (!response.ok) {
     throw new Error(`Token request failed (${response.status})`);
@@ -33,4 +42,14 @@ export async function requestRealtimeToken(
   }
 
   return payload.token;
+}
+
+/**
+ * ElevenLabs のリアルタイムトークンを取得する（Even G2 グラス用の既存API）
+ */
+export async function requestRealtimeToken(
+  apiBaseUrl: string,
+  fetchImpl: Fetch = fetch,
+): Promise<string> {
+  return requestRealtimeTokenFor(apiBaseUrl, "elevenlabs", fetchImpl);
 }

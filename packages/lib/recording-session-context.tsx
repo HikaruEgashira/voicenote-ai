@@ -60,6 +60,7 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
 
   // Derive realtime settings from SettingsContext
   const realtimeEnabled = settings.realtimeTranscription.enabled;
+  const realtimeProvider = settings.realtimeTranscription.provider;
   const translationEnabled = settings.realtimeTranslation.enabled;
   const translationTargetLanguage = settings.realtimeTranslation.targetLanguage;
 
@@ -279,6 +280,7 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
           }
 
           await startRealtimeSession(recordingId, {
+            provider: realtimeProvider,
             skipAudioStreaming: useSystemAudio,
           }, {
             onPartial: translationEnabled ? translatePartial : undefined,
@@ -311,7 +313,7 @@ export function RecordingSessionProvider({ children }: { children: React.ReactNo
       }
       Alert.alert('エラー', '録音を開始できませんでした');
     }
-  }, [audioRecorder, realtimeEnabled, translationEnabled, startRealtimeSession, translatePartial, translateCommitted, clearTranslationCache, isRecording, sendAudioChunk]);
+  }, [audioRecorder, realtimeEnabled, realtimeProvider, translationEnabled, startRealtimeSession, translatePartial, translateCommitted, clearTranslationCache, isRecording, sendAudioChunk]);
 
   const pauseResume = useCallback(async () => {
     // ExpoPlayAudioStreamはpause/resumeをサポートしない
