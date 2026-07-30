@@ -17,6 +17,27 @@ import type { TranscriptSegment } from "@/packages/types/realtime-transcription"
 
 type IdGenerator = () => string;
 
+/** providerItemId が一致するセグメントの位置を返す（なければ -1） */
+function findIndexByItemId(
+  segments: TranscriptSegment[],
+  providerItemId: string,
+): number {
+  for (let i = segments.length - 1; i >= 0; i--) {
+    if (segments[i].providerItemId === providerItemId) return i;
+  }
+  return -1;
+}
+
+function replaceAt(
+  segments: TranscriptSegment[],
+  index: number,
+  segment: TranscriptSegment,
+): TranscriptSegment[] {
+  const next = [...segments];
+  next[index] = segment;
+  return next;
+}
+
 export interface SegmentUpdate {
   /** 更新後のセグメント配列 */
   segments: TranscriptSegment[];
@@ -33,7 +54,31 @@ export function applyPartial(
   text: string,
   timestamp: number,
   idGen: IdGenerator,
+  providerItemId?: string,
 ): SegmentUpdate {
+  // providerItemId があるプロバイダ（OpenAI）は、ターンが並行しうるため
+  // 「最後のpartial」ではなく該当ターンのセグメントを更新する。
+  if (providerItemId) {
+    const index = findIndexByItemId(segments, providerItemId);
+    if (index !== -1) {
+      const segment: TranscriptSegment = {
+        ...segments[index],
+        text,
+        timestamp,
+      };
+      return { segments: replaceAt(segments, index, segment), segment };
+    }
+
+    const segment: TranscriptSegment = {
+      id: idGen(),
+      text,
+      isPartial: true,
+      timestamp,
+      providerItemId,
+    };
+    return { segments: [...segments, segment], segment };
+  }
+
   const last = segments[segments.length - 1];
 
   if (last?.isPartial) {
@@ -65,7 +110,35 @@ export function applyCommitted(
   timestamp: number,
   speaker: string | undefined,
   idGen: IdGenerator,
+  providerItemId?: string,
 ): SegmentUpdate {
+  // 該当ターンのセグメントを in-place で確定化する。
+  // 次のターンのpartialが先に届いていても取り違えない。
+  if (providerItemId) {
+    const index = findIndexByItemId(segments, providerItemId);
+    if (index !== -1) {
+      const target = segments[index];
+      const segment: TranscriptSegment = {
+        ...target,
+        text,
+        isPartial: false,
+        timestamp,
+        speaker: speaker ?? target.speaker,
+      };
+      return { segments: replaceAt(segments, index, segment), segment };
+    }
+
+    const segment: TranscriptSegment = {
+      id: idGen(),
+      text,
+      isPartial: false,
+      timestamp,
+      speaker,
+      providerItemId,
+    };
+    return { segments: [...segments, segment], segment };
+  }
+
   const last = segments[segments.length - 1];
 
   // 1. 直前がpartial: テキストが変化していても in-place で確定化（ID維持）

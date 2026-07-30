@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  EvenG2TokenRateLimiter,
-  issueEvenG2RealtimeToken,
-} from "../apps/server/even-g2-token";
+  RealtimeTokenRateLimiter,
+  issueRealtimeToken,
+} from "../apps/server/realtime-token";
 
 type LambdaResponse = {
   statusCode: number;
@@ -46,9 +46,9 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("EvenG2TokenRateLimiter", () => {
+describe("RealtimeTokenRateLimiter", () => {
   it("limits each client to five token requests per minute", () => {
-    const limiter = new EvenG2TokenRateLimiter();
+    const limiter = new RealtimeTokenRateLimiter();
 
     for (let request = 0; request < 5; request += 1) {
       expect(limiter.consume("client", 0)).toBe(true);
@@ -58,7 +58,7 @@ describe("EvenG2TokenRateLimiter", () => {
   });
 
   it("caps token issuance across clients within one process", () => {
-    const limiter = new EvenG2TokenRateLimiter();
+    const limiter = new RealtimeTokenRateLimiter();
 
     for (let request = 0; request < 100; request += 1) {
       expect(limiter.consume(`client-${request}`, 0)).toBe(true);
@@ -68,14 +68,14 @@ describe("EvenG2TokenRateLimiter", () => {
   });
 });
 
-describe("issueEvenG2RealtimeToken", () => {
+describe("issueRealtimeToken", () => {
   it("returns a server-generated single-use token", async () => {
     const tokenFactory = vi.fn().mockResolvedValue("single-use");
 
     await expect(
-      issueEvenG2RealtimeToken(
+      issueRealtimeToken(
         "client",
-        new EvenG2TokenRateLimiter(),
+        new RealtimeTokenRateLimiter(),
         tokenFactory,
       ),
     ).resolves.toEqual({ ok: true, token: "single-use" });
@@ -83,15 +83,15 @@ describe("issueEvenG2RealtimeToken", () => {
   });
 
   it("does not call the provider after the request limit", async () => {
-    const limiter = new EvenG2TokenRateLimiter();
+    const limiter = new RealtimeTokenRateLimiter();
     const tokenFactory = vi.fn().mockResolvedValue("single-use");
 
     for (let request = 0; request < 5; request += 1) {
-      await issueEvenG2RealtimeToken("client", limiter, tokenFactory);
+      await issueRealtimeToken("client", limiter, tokenFactory);
     }
 
     await expect(
-      issueEvenG2RealtimeToken("client", limiter, tokenFactory),
+      issueRealtimeToken("client", limiter, tokenFactory),
     ).resolves.toEqual({
       ok: false,
       status: 429,
@@ -110,9 +110,9 @@ describe("issueEvenG2RealtimeToken", () => {
       .mockRejectedValue(new Error("secret provider response"));
 
     await expect(
-      issueEvenG2RealtimeToken(
+      issueRealtimeToken(
         "client",
-        new EvenG2TokenRateLimiter(),
+        new RealtimeTokenRateLimiter(),
         tokenFactory,
       ),
     ).resolves.toEqual({
@@ -121,7 +121,7 @@ describe("issueEvenG2RealtimeToken", () => {
       error: "Transcription service unavailable",
     });
     expect(consoleError).toHaveBeenCalledWith(
-      "[Even G2] Realtime token request failed",
+      "[Realtime] Token request failed",
     );
     expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
       "secret provider response",
@@ -132,9 +132,9 @@ describe("issueEvenG2RealtimeToken", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     await expect(
-      issueEvenG2RealtimeToken(
+      issueRealtimeToken(
         "client",
-        new EvenG2TokenRateLimiter(),
+        new RealtimeTokenRateLimiter(),
         vi.fn().mockResolvedValue(""),
       ),
     ).resolves.toEqual({
@@ -280,5 +280,95 @@ describe("Even G2 token HTTP boundary", () => {
     expect(response?.statusCode).toBe(429);
     expect(response?.headers["retry-after"]).toBe("60");
     expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+});
+
+describe("OpenAI realtime token HTTP boundary", () => {
+  it("issues an ephemeral client secret for a transcription session", async () => {
+    vi.stubEnv("AWS_LAMBDA_FUNCTION_NAME", "test");
+    vi.stubEnv("OPENAI_API_KEY", "openai-key");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ value: "ek_secret", expires_at: 1 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.resetModules();
+
+    const { handler } = await import("../apps/server/_core/index");
+    const response = (await handler(
+      apiGatewayEvent({ path: "/api/openai/realtime-token" }),
+      {},
+    )) as LambdaResponse;
+
+    expect(response.statusCode).toBe(200);
+    // クライアントには API キーではなく短命のシークレットだけを返す
+    expect(JSON.parse(response.body)).toEqual({ token: "ek_secret" });
+    expect(response.headers["access-control-allow-origin"]).toBe("*");
+    expect(response.headers["cache-control"]).toBe("no-store, max-age=0");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://api.openai.com/v1/realtime/client_secrets");
+    expect(init.headers.Authorization).toBe("Bearer openai-key");
+    const body = JSON.parse(init.body);
+    expect(body.session.type).toBe("transcription");
+    expect(body.session.audio.input.transcription.model).toBe(
+      "gpt-live-transcribe",
+    );
+    expect(body.session.audio.input.format).toEqual({
+      type: "audio/pcm",
+      rate: 24000,
+    });
+  });
+
+  it("hides provider failures behind a 502", async () => {
+    vi.stubEnv("AWS_LAMBDA_FUNCTION_NAME", "test");
+    vi.stubEnv("OPENAI_API_KEY", "openai-key");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("nope", { status: 401, statusText: "Unauthorized" }),
+      ),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.resetModules();
+
+    const { handler } = await import("../apps/server/_core/index");
+    const response = (await handler(
+      apiGatewayEvent({
+        path: "/api/openai/realtime-token",
+        sourceIp: "198.51.100.9",
+      }),
+      {},
+    )) as LambdaResponse;
+
+    expect(response.statusCode).toBe(502);
+    expect(JSON.parse(response.body)).toEqual({
+      error: "Transcription service unavailable",
+    });
+    expect(response.body).not.toContain("openai-key");
+  });
+
+  it("rejects request bodies on the OpenAI route too", async () => {
+    vi.stubEnv("AWS_LAMBDA_FUNCTION_NAME", "test");
+    vi.stubEnv("OPENAI_API_KEY", "openai-key");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.resetModules();
+
+    const { handler } = await import("../apps/server/_core/index");
+    const response = (await handler(
+      apiGatewayEvent({
+        path: "/api/openai/realtime-token",
+        sourceIp: "198.51.100.10",
+        body: "{}",
+        headers: { "content-length": "0", "content-type": "application/json" },
+      }),
+      {},
+    )) as LambdaResponse;
+
+    expect(response.statusCode).toBe(413);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -7,12 +7,30 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import {
-  EvenG2TokenRateLimiter,
-  issueEvenG2RealtimeToken,
-} from "../even-g2-token";
+  RealtimeTokenRateLimiter,
+  REALTIME_TOKEN_FACTORIES,
+  issueRealtimeToken,
+  type RealtimeTokenProvider,
+} from "../realtime-token";
 
-const evenG2TokenLimiter = new EvenG2TokenRateLimiter();
+const realtimeTokenLimiter = new RealtimeTokenRateLimiter();
+// Even G2 グラス向けに公開済みのパス。互換性のため維持している。
 const EVEN_G2_TOKEN_PATH = "/api/even-g2/realtime-token";
+const OPENAI_TOKEN_PATH = "/api/openai/realtime-token";
+const REALTIME_TOKEN_PATHS: Record<string, RealtimeTokenProvider> = {
+  [EVEN_G2_TOKEN_PATH]: "elevenlabs",
+  [OPENAI_TOKEN_PATH]: "openai",
+};
+
+/**
+ * トークン発行エンドポイントかどうかを判定する（末尾スラッシュも許容）
+ */
+function resolveRealtimeTokenProvider(
+  path: string,
+): RealtimeTokenProvider | null {
+  const normalized = path.endsWith("/") ? path.slice(0, -1) : path;
+  return REALTIME_TOKEN_PATHS[normalized] ?? null;
+}
 
 function createApp() {
   const app = express();
@@ -25,10 +43,10 @@ function createApp() {
 
   app.use((req, res, next) => {
     const origin = req.headers.origin;
-    const isEvenG2TokenRequest =
-      req.path === EVEN_G2_TOKEN_PATH || req.path === `${EVEN_G2_TOKEN_PATH}/`;
+    const isRealtimeTokenRequest =
+      resolveRealtimeTokenProvider(req.path) !== null;
     // Mobile app requests have no origin; web requests must match allowlist
-    if (isEvenG2TokenRequest) {
+    if (isRealtimeTokenRequest) {
       res.header("Access-Control-Allow-Origin", "*");
       res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
       res.header("Access-Control-Allow-Headers", "Accept, Content-Type");
@@ -39,7 +57,7 @@ function createApp() {
         res.header("Access-Control-Allow-Credentials", "true");
       }
     }
-    if (!isEvenG2TokenRequest) {
+    if (!isRealtimeTokenRequest) {
       res.header(
         "Access-Control-Allow-Methods",
         "GET, POST, PUT, DELETE, OPTIONS",
@@ -58,7 +76,7 @@ function createApp() {
     next();
   });
 
-  app.post(EVEN_G2_TOKEN_PATH, async (req, res) => {
+  app.post([EVEN_G2_TOKEN_PATH, OPENAI_TOKEN_PATH], async (req, res) => {
     res.set({
       "Cache-Control": "no-store, max-age=0",
       Expires: "0",
@@ -79,8 +97,18 @@ function createApp() {
       return;
     }
 
+    const provider = resolveRealtimeTokenProvider(req.path);
+    if (!provider) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+
     const clientId = req.socket.remoteAddress || "unknown";
-    const result = await issueEvenG2RealtimeToken(clientId, evenG2TokenLimiter);
+    const result = await issueRealtimeToken(
+      clientId,
+      realtimeTokenLimiter,
+      REALTIME_TOKEN_FACTORIES[provider],
+    );
 
     if (!result.ok) {
       if (result.status === 429) {

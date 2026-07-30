@@ -1,4 +1,5 @@
 import { generateRealtimeToken } from "./elevenlabs-realtime";
+import { generateOpenAIRealtimeToken } from "./openai-realtime";
 
 const WINDOW_MS = 60_000;
 const REQUESTS_PER_WINDOW = 5;
@@ -10,7 +11,7 @@ type ClientWindow = {
   resetsAt: number;
 };
 
-export class EvenG2TokenRateLimiter {
+export class RealtimeTokenRateLimiter {
   private readonly clients = new Map<string, ClientWindow>();
   private instanceWindow: ClientWindow = { count: 0, resetsAt: 0 };
 
@@ -57,16 +58,32 @@ export class EvenG2TokenRateLimiter {
   }
 }
 
-export type EvenG2TokenIssueResult =
+/**
+ * リアルタイム文字起こしのプロバイダ
+ */
+export type RealtimeTokenProvider = "elevenlabs" | "openai";
+
+/**
+ * プロバイダごとのトークン発行関数
+ */
+export const REALTIME_TOKEN_FACTORIES: Record<
+  RealtimeTokenProvider,
+  () => Promise<string>
+> = {
+  elevenlabs: generateRealtimeToken,
+  openai: generateOpenAIRealtimeToken,
+};
+
+export type RealtimeTokenIssueResult =
   | { ok: true; token: string }
   | { ok: false; status: 429; error: string; retryAfterSeconds: number }
   | { ok: false; status: 502; error: string };
 
-export async function issueEvenG2RealtimeToken(
+export async function issueRealtimeToken(
   clientId: string,
-  limiter: EvenG2TokenRateLimiter,
+  limiter: RealtimeTokenRateLimiter,
   tokenFactory: () => Promise<string> = generateRealtimeToken,
-): Promise<EvenG2TokenIssueResult> {
+): Promise<RealtimeTokenIssueResult> {
   if (!limiter.consume(clientId)) {
     return {
       ok: false,
@@ -83,7 +100,7 @@ export async function issueEvenG2RealtimeToken(
     }
     return { ok: true, token };
   } catch {
-    console.error("[Even G2] Realtime token request failed");
+    console.error("[Realtime] Token request failed");
     return {
       ok: false,
       status: 502,

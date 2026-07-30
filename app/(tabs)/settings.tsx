@@ -32,6 +32,7 @@ import { useWhisperModel } from "@/packages/hooks/use-whisper-model";
 import { useMoonshine } from "@/packages/lib/moonshine-context";
 import { recommendModelTier, type ModelRecommendation } from "@/packages/lib/device-model-recommendation";
 import { useSettings, type Language, type TranscriptionProvider } from "@/packages/lib/settings-context";
+import type { RealtimeProvider } from "@/packages/types/realtime-transcription";
 
 type SummaryTemplate = "general" | "meeting" | "interview" | "lecture" | string;
 
@@ -60,6 +61,11 @@ const TEMPLATES: { value: SummaryTemplate; label: string; description: string }[
   { value: "meeting", label: "会議", description: "議題・決定・アクション" },
   { value: "interview", label: "インタビュー", description: "発言・結論" },
   { value: "lecture", label: "講義", description: "概念・学習ポイント" },
+];
+
+const REALTIME_PROVIDERS: { value: RealtimeProvider; label: string; description: string }[] = [
+  { value: "elevenlabs", label: "ElevenLabs", description: "Scribe Realtime v2・話者分離対応" },
+  { value: "openai", label: "GPT Live Transcribe", description: "OpenAI・低遅延ストリーミング" },
 ];
 
 const TRANSLATION_LANGUAGES: { value: string; label: string }[] = [
@@ -113,7 +119,11 @@ export default function SettingsScreen() {
   }, []);
 
   const realtimeEnabled = settings.realtimeTranscription.enabled;
-  const isElevenLabs = settings.transcriptionProvider === "elevenlabs";
+  // リアルタイム文字起こしは専用のクラウドプロバイダを使うため、
+  // 録音後のバッチ文字起こし設定（ローカルモデル含む）とは独立して選択できる。
+  const realtimeProvider = settings.realtimeTranscription.provider;
+  // 話者分離は ElevenLabs のみ。GPT Live Transcribe は話者ラベルを返さない。
+  const supportsDiarization = realtimeProvider === "elevenlabs";
 
   const handleClearData = async () => {
     if (Platform.OS === "web") {
@@ -359,32 +369,43 @@ export default function SettingsScreen() {
         {/* リアルタイム */}
         <SectionHeader label="リアルタイム" colors={colors} />
         <View style={[styles.section, { backgroundColor: colors.surface }]}>
-          {!isElevenLabs && (
-            <NoteBox
-              icon="exclamationmark.triangle.fill"
-              text="リアルタイム機能は現在の文字起こし設定では利用できません"
-              color={colors.warning}
-              colors={colors}
-              style={{ marginBottom: 12 }}
-            />
-          )}
           <ToggleRow
             label="リアルタイム文字起こし"
             description="録音中にリアルタイムで文字起こし結果を表示"
             value={realtimeEnabled}
             onValueChange={() => { Haptics.impact("light"); updateNestedSettings("realtimeTranscription", { enabled: !realtimeEnabled }); }}
             colors={colors}
-            disabled={!isElevenLabs}
           />
-          {realtimeEnabled && isElevenLabs && (
+          {realtimeEnabled && (
             <>
-              <ToggleRow
-                label="話者分離"
-                description="複数話者を自動識別してラベル付け"
-                value={settings.realtimeTranscription.enableSpeakerDiarization}
-                onValueChange={() => { Haptics.impact("light"); updateNestedSettings("realtimeTranscription", { enableSpeakerDiarization: !settings.realtimeTranscription.enableSpeakerDiarization }); }}
-                colors={colors}
-              />
+              <RowLabel label="リアルタイムエンジン" colors={colors} />
+              {REALTIME_PROVIDERS.map((provider) => (
+                <SelectItem
+                  key={provider.value}
+                  label={provider.label}
+                  description={provider.description}
+                  selected={realtimeProvider === provider.value}
+                  onPress={() => { Haptics.impact("light"); updateNestedSettings("realtimeTranscription", { provider: provider.value }); }}
+                  colors={colors}
+                />
+              ))}
+              {supportsDiarization ? (
+                <ToggleRow
+                  label="話者分離"
+                  description="複数話者を自動識別してラベル付け"
+                  value={settings.realtimeTranscription.enableSpeakerDiarization}
+                  onValueChange={() => { Haptics.impact("light"); updateNestedSettings("realtimeTranscription", { enableSpeakerDiarization: !settings.realtimeTranscription.enableSpeakerDiarization }); }}
+                  colors={colors}
+                />
+              ) : (
+                <NoteBox
+                  icon="info.circle.fill"
+                  text="GPT Live Transcribe は話者分離・単語タイムスタンプに対応していません"
+                  color={colors.muted}
+                  colors={colors}
+                  style={{ marginBottom: 12 }}
+                />
+              )}
               <ToggleRow
                 label="リアルタイム翻訳"
                 description="文字起こし結果をリアルタイムで翻訳（API使用量増加）"

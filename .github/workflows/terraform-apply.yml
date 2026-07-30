@@ -44,6 +44,7 @@ jobs:
         run: |
           terraform plan -out=tfplan \
             -var="elevenlabs_api_key=${{ secrets.ELEVENLABS_API_KEY }}" \
+            -var="openai_api_key=${{ secrets.OPENAI_API_KEY }}" \
             -var="gemini_api_key=${{ secrets.GEMINI_API_KEY }}" \
             -var="jwt_secret=${{ secrets.JWT_SECRET }}" \
             -var="app_hmac_secret=${{ secrets.APP_HMAC_SECRET }}" \

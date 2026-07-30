@@ -1,15 +1,18 @@
 /**
  * リアルタイム文字起こしReactフック
  *
- * ElevenLabs Scribe Realtime V2を使用して、
+ * ElevenLabs Scribe Realtime V2 または OpenAI GPT Live Transcribe を使用して、
  * 録音中にリアルタイムで文字起こし結果を取得します。
+ * プロトコルの差異は RealtimeClient 実装側に閉じ込めているため、
+ * このフックはプロバイダを意識せずに扱えます。
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { Alert } from "react-native";
 import { API_BASE_URL } from "@/packages/lib/api";
-import { RealtimeTranscriptionClient } from "@/packages/lib/realtime-transcription";
-import { requestRealtimeToken } from "@/packages/lib/realtime-token";
+import type { RealtimeClient } from "@/packages/lib/realtime-client";
+import { createRealtimeTranscriptionClient } from "@/packages/lib/realtime-transcription-factory";
+import { requestRealtimeTokenFor } from "@/packages/lib/realtime-token";
 import { applyPartial, applyCommitted, applyTimestampedCommitted, mergeSegments } from "@/packages/lib/transcript-segments";
 import { createAudioStream, type AudioStreamController, type AudioStreamResult } from "@/packages/platform";
 import type {
@@ -47,7 +50,7 @@ export function useRealtimeTranscription() {
   });
   const [soundLevel, setSoundLevel] = useState<number>(0);
 
-  const clientRef = useRef<RealtimeTranscriptionClient | null>(null);
+  const clientRef = useRef<RealtimeClient | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
   const currentRecordingIdRef = useRef<string | null>(null);
   const audioStreamRef = useRef<AudioStreamController | null>(null);
@@ -149,10 +152,11 @@ export function useRealtimeTranscription() {
       currentRecordingIdRef.current = recordingId;
       recordingStartTimeRef.current = 0;
 
-      const token = await requestRealtimeToken(API_BASE_URL);
+      const provider = options.provider ?? "elevenlabs";
+      const token = await requestRealtimeTokenFor(API_BASE_URL, provider);
 
-      // WebSocketクライアント初期化
-      const client = new RealtimeTranscriptionClient();
+      // WebSocketクライアント初期化（プロバイダごとの実装を注入）
+      const client = createRealtimeTranscriptionClient(provider);
       clientRef.current = client;
 
       // イベントハンドラ設定
@@ -164,7 +168,7 @@ export function useRealtimeTranscription() {
         }));
       });
 
-      client.on("partial", (data: { text: string }) => {
+      client.on("partial", (data: { text: string; itemId?: string }) => {
         const timestamp = (Date.now() - recordingStartTimeRef.current) / 1000;
 
         setState((prev) => {
@@ -173,6 +177,7 @@ export function useRealtimeTranscription() {
             data.text,
             timestamp,
             generateSegmentId,
+            data.itemId,
           );
           if (callbacksRef.current?.onPartial) {
             setTimeout(() => callbacksRef.current?.onPartial?.(segment), 0);
@@ -181,7 +186,7 @@ export function useRealtimeTranscription() {
         });
       });
 
-      client.on("committed", (data: { text: string }) => {
+      client.on("committed", (data: { text: string; itemId?: string }) => {
         const timestamp = (Date.now() - recordingStartTimeRef.current) / 1000;
 
         setState((prev) => {
@@ -191,6 +196,7 @@ export function useRealtimeTranscription() {
             timestamp,
             undefined,
             generateSegmentId,
+            data.itemId,
           );
           if (callbacksRef.current?.onCommitted) {
             setTimeout(() => callbacksRef.current?.onCommitted?.(segment), 0);
@@ -232,7 +238,11 @@ export function useRealtimeTranscription() {
           error: error.message || "接続エラーが発生しました",
         }));
 
-        if (error.code === "quota_exceeded") {
+        // ElevenLabs は quota_exceeded、OpenAI は insufficient_quota を返す
+        if (
+          error.code === "quota_exceeded" ||
+          error.code === "insufficient_quota"
+        ) {
           Alert.alert(
             "クォータ超過",
             "文字起こしクォータに達しました。録音は継続できますが、リアルタイム文字起こしは無効化されます。"
@@ -250,11 +260,13 @@ export function useRealtimeTranscription() {
 
       // WebSocket接続
       const connectionOptions: RealtimeOptions = {
+        provider,
         languageCode: options.languageCode || "ja",
         vad: options.vad || {
           silenceThresholdSecs: 0.5,
           minSpeechDurationMs: 250,
         },
+        openai: options.openai,
       };
 
       await client.connect(token, connectionOptions);
@@ -289,6 +301,13 @@ export function useRealtimeTranscription() {
     const streamResult = await stopAudioStreaming();
 
     if (clientRef.current) {
+      // VADの無音待ち前に停止した場合、最後の発話が未確定のまま残る。
+      // 切断前にフラッシュして確定結果を取りこぼさない。
+      try {
+        await clientRef.current.finalize?.();
+      } catch {
+        // フラッシュ失敗はセッション停止を妨げない
+      }
       clientRef.current.disconnect();
       clientRef.current = null;
     }
